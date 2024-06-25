@@ -111,8 +111,7 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public List<Role> getAllRole(int pageIndex, int pageSize) {
-        Pageable pageable = PageRequest.of(pageIndex-1, pageSize);
-        return roleRepository.findAll(pageable).getContent();
+    public List<Role> getAllRole() {
+        return roleRepository.findAll();
     }
 }

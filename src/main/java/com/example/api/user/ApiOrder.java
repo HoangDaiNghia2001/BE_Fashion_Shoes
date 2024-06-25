@@ -1,6 +1,5 @@
 package com.example.api.user;
 
-import com.example.Entity.Order;
 import com.example.Entity.VNPayInformation;
 import com.example.exception.CustomException;
 import com.example.request.OrderRequest;
@@ -10,9 +9,18 @@ import com.example.response.Response;
 import com.example.response.ResponseData;
 import com.example.response.VNPayResponse;
 import com.example.service.OrderService;
+import com.example.service.PayPalService;
 import com.example.service.VNPayService;
+import com.example.util.EmailUtil;
+import com.example.util.MethodUtils;
+import com.paypal.api.payments.Links;
+import com.paypal.api.payments.Payment;
+import com.paypal.base.rest.PayPalRESTException;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -40,6 +48,14 @@ public class ApiOrder {
     @Autowired
     private VNPayService vnPayService;
 
+    @Autowired
+    private PayPalService payPalService;
+
+    @Autowired
+    private EmailUtil emailUtil;
+
+    private Logger log = LoggerFactory.getLogger(getClass());
+
     // CALL SUCCESS
     @GetMapping("/order/newest")
     public ResponseEntity<?> getOrderIdNewest() {
@@ -49,7 +65,7 @@ public class ApiOrder {
 
     // CALL SUCCESS
     @GetMapping("/order/detail")
-    public ResponseEntity<?> getOrderDetailById(@RequestParam("id")Long orderId) throws CustomException {
+    public ResponseEntity<?> getOrderDetailById(@RequestParam("id") Long orderId) throws CustomException {
         OrderResponse orderResponse = orderDetailService.getOrderDetail(orderId);
 
         ResponseData<OrderResponse> responseData = new ResponseData<>();
@@ -63,13 +79,13 @@ public class ApiOrder {
     // CALL SUCCESS
     @GetMapping("/orders/detail")
     public ResponseEntity<?> getOrdersDetail(@RequestParam(value = "orderStatus", required = false) String orderStatus,
-                                            @RequestParam(value = "paymentMethod", required = false) String paymentMethod,
-                                            @RequestParam(value = "orderDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime orderDateStart,
-                                            @RequestParam(value = "orderDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime orderDateEnd,
-                                            @RequestParam(value = "deliveryDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime deliveryDateStart,
-                                            @RequestParam(value = "deliveryDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime deliveryDateEnd,
-                                            @RequestParam(value = "receivingDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateStart,
-                                            @RequestParam(value = "receivingDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateEnd) throws CustomException {
+                                             @RequestParam(value = "paymentMethod", required = false) String paymentMethod,
+                                             @RequestParam(value = "orderDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime orderDateStart,
+                                             @RequestParam(value = "orderDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime orderDateEnd,
+                                             @RequestParam(value = "deliveryDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime deliveryDateStart,
+                                             @RequestParam(value = "deliveryDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime deliveryDateEnd,
+                                             @RequestParam(value = "receivingDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateStart,
+                                             @RequestParam(value = "receivingDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateEnd) throws CustomException {
         List<OrderResponse> orderResponses = orderDetailService.getOrderDetailsByUser(orderStatus, paymentMethod, orderDateStart, orderDateEnd,
                 deliveryDateStart, deliveryDateEnd, receivingDateStart, receivingDateEnd);
 
@@ -83,7 +99,7 @@ public class ApiOrder {
 
     // CALL SUCCESS
     @PostMapping("/place/order/cod")
-    public ResponseEntity<?> placeOrderCOD(@RequestBody OrderRequest orderRequest) throws CustomException {
+    public ResponseEntity<?> placeOrderCOD(@RequestBody OrderRequest orderRequest) throws CustomException, MessagingException {
         orderDetailService.placeOrderCOD(orderRequest);
 
         Response response = new Response();
@@ -109,6 +125,69 @@ public class ApiOrder {
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
+    @PostMapping("/place/order/PayPal")
+    public ResponseEntity<?> placeOrderPayPal(@RequestParam("total") Double total,
+                                              @RequestParam("orderId") int orderId) throws PayPalRESTException, IOException {
+        String cancelUrl = MethodUtils.getBaseURL(request) + "/" + "api/user/pay/cancel";
+        String successUrl = MethodUtils.getBaseURL(request) + "/" + "api/user/pay/success?orderId=" + orderId;
+        try {
+            Payment payment = payPalService.createPayment(
+                    total,
+                    "USD",
+                    "paypal",
+                    "sale",
+                    "payment description",
+                    cancelUrl,
+                    successUrl);
+            for (Links links : payment.getLinks()) {
+                if (links.getRel().equals("approval_url")) {
+                    ResponseData<String> response = new ResponseData<>();
+                    response.setSuccess(true);
+                    response.setMessage("Get URL PayPal success !!!");
+                    response.setResults(links.getHref());
+                    return new ResponseEntity<>(response, HttpStatus.FOUND);
+                }
+            }
+        } catch (PayPalRESTException e) {
+            log.error(e.getMessage());
+        }
+        return null;
+    }
+
+    @GetMapping("/pay/success")
+    public ResponseEntity<?> paymentPayPalSuccess() throws PayPalRESTException, IOException, CustomException, MessagingException {
+        String paymentId = request.getParameter("paymentId");
+        String payerId = request.getParameter("PayerID");
+        Long orderId = Long.valueOf(request.getParameter("orderId"));
+
+        Payment payment = payPalService.executePayment(paymentId, payerId);
+        orderDetailService.updatePayOfOrderPayPal(payment.getState(), orderId);
+        OrderResponse orderResponse = orderDetailService.getOrderNewestByEmail();
+        emailUtil.sendOrderEmail(orderResponse);
+        response.sendRedirect("http://localhost:3000/orders");
+        Response response = new Response();
+        response.setSuccess(true);
+        response.setMessage("Paypal success !!!");
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/pay/cancel")
+    public ResponseEntity<?> paymentPayPalCancel() throws IOException {
+        response.sendRedirect("http://localhost:3000/cart");
+
+        return ResponseEntity.ok().body("Paypal cancel !!!");
+    }
+
+    @GetMapping("/payment/paypal/error")
+    public ResponseEntity<?> paymentPayPalError() throws IOException {
+        response.sendRedirect("http://localhost:3000/");
+
+        Response response = new Response();
+        response.setSuccess(false);
+        response.setMessage("Paypal error !!!");
+        return new ResponseEntity<>(response, HttpStatus.FAILED_DEPENDENCY);
+    }
+
     // CALL SUCCESS
     @DeleteMapping("/order")
     public ResponseEntity<?> cancelOrderByUser(@RequestParam("id") Long idOrder) throws CustomException {
@@ -123,9 +202,9 @@ public class ApiOrder {
 
     // CALL SUCCESS
     @PutMapping("/order")
-    public ResponseEntity<?> updateOrderByUser(@RequestParam("id")Long orderId,
+    public ResponseEntity<?> updateOrderByUser(@RequestParam("id") Long orderId,
                                                @RequestBody OrderUpdateRequest orderUpdateRequest) throws CustomException {
-        orderDetailService.updateOrderByUser(orderId,orderUpdateRequest);
+        orderDetailService.updateOrderByUser(orderId, orderUpdateRequest);
 
         Response response = new Response();
         response.setSuccess(true);
@@ -136,7 +215,7 @@ public class ApiOrder {
 
     // CALL SUCCESS
     @GetMapping("/order/vnpay")
-    public ResponseEntity<?> vnPayResponse() throws IOException, CustomException {
+    public ResponseEntity<?> vnPayResponse() throws IOException, CustomException, MessagingException {
         VNPayResponse vnPayResponse = new VNPayResponse();
         vnPayResponse.setVnp_Amount(request.getParameter("vnp_Amount"));
         vnPayResponse.setVnp_PayDate(request.getParameter("vnp_PayDate"));
@@ -147,22 +226,24 @@ public class ApiOrder {
 
         List<String> list = List.of(vnPayResponse.getVnp_OrderInfo().split("-"));
 
-        String orderId = list.get(list.size()-1);
+        String orderId = list.get(list.size() - 1);
 
         vnPayService.createVNPayOfOrder(vnPayResponse, Long.valueOf(orderId));
 
         orderDetailService.updatePayOfOrderVNPay(vnPayResponse.getVnp_ResponseCode(), Long.valueOf(orderId));
 
-//        response.sendRedirect("http://localhost:3000/vnpay-response/" + orderId);
-        response.sendRedirect("https://fashion-shoes.vercel.app/vnpay-response/" + orderId);
+        OrderResponse orderResponse = orderDetailService.getOrderNewestByEmail();
+        emailUtil.sendOrderEmail(orderResponse);
 
+        response.sendRedirect("http://localhost:3000/vnpay-response/" + orderId);
+//        response.sendRedirect("https://fashion-shoes.vercel.app/vnpay-response/" + orderId);
 
         return ResponseEntity.ok().body("VNPay response !!!");
     }
 
     // CALL SUCCESS
     @GetMapping("/order/vnpay/information")
-    public ResponseEntity<?> getVNPayInformationByOrderId(@RequestParam("orderId") Long orderId){
+    public ResponseEntity<?> getVNPayInformationByOrderId(@RequestParam("orderId") Long orderId) {
         VNPayInformation vnPayInformation = vnPayService.getVNPayInformationByOrderId(orderId);
 
         ResponseData<VNPayInformation> responseData = new ResponseData<>();

@@ -16,12 +16,9 @@ import com.example.service.CartService;
 import com.example.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.html.Option;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -66,8 +63,14 @@ public class CartServiceImpl implements CartService {
                     // kiểm tra xem sản phẩm có size này đã có trong giỏ hàng hay chưa
                     if (checkCartItemExist.size() != 0) {
                         // nếu sản phẩm đã tồn tại thì cập nhật lại bằng cách tạo ra cart item mới từ cái cũ và xóa đi cái cũ
+                        int quantity = checkCartItemExist.get(0).getQuantity() + 1;
+
+                        // kiem tra so luong co phu hop voi so luong san pham trong kho hay khong
+                        if (Objects.equals(checkSize.get(0).getName(), cartRequest.getSize()) && (checkSize.get(0).getQuantity() < quantity)) {
+                            throw new CustomException("You can only buy up to " + checkSize.get(0).getQuantity() + " products for size " + checkSize.get(0).getName());
+                        }
                         cart.setUser(user);
-                        cart.setQuantity(Math.min((checkCartItemExist.get(0).getQuantity() + 1), 10));
+                        cart.setQuantity(Math.min(quantity, 10));
                         cart.setTotalPrice(cart.getQuantity() * checkCartItemExist.get(0).getProduct().getDiscountedPrice());
                         cart.setCreatedBy(user.getEmail());
                         cart.setSize(checkCartItemExist.get(0).getSize());
@@ -119,57 +122,62 @@ public class CartServiceImpl implements CartService {
             User user = userService.findUserProfileByJwt(token);
 
             if (user.getId().equals(oldCartItem.get().getUser().getId())) {
-                if (cartRequest.getQuantity() > 0 && cartRequest.getQuantity() <= 10) {
-
-                    List<Cart> cartOfUser = cartRepository.findByUserIdOrderByIdDesc(user.getId());
-
-                    // kiểm tra xem trong giỏ hàng của user đó có tồn tại sản phẩm có cùng size hay k
-                    // nếu có thì gộp làm 1 ngược lại thì cập nhật bth
-                    List<Cart> checkCartExist = cartOfUser.stream().filter(c ->
-                            (c.getSize() == cartRequest.getSize()
-                                    && Objects.equals(c.getProduct().getId(), cartRequest.getProductId())
-                                    && !Objects.equals(c.getId(), id))).toList();
-
-                    if (checkCartExist.size() > 0) {
-                        int quantity = cartRequest.getQuantity() + checkCartExist.get(0).getQuantity();
-                        cart.setUser(user);
-                        cart.setProduct(checkCartExist.get(0).getProduct());
-                        cart.setSize(checkCartExist.get(0).getSize());
-                        cart.setQuantity(Math.min(quantity, 10));
-                        cart.setTotalPrice(checkCartExist.get(0).getProduct().getDiscountedPrice() * cart.getQuantity());
-                        cart.setCreatedBy(user.getEmail());
-                        cart.setUpdateBy(user.getEmail());
-
-                        cartRepository.delete(oldCartItem.get());
-                        cartRepository.delete(checkCartExist.get(0));
-
-                        cart = cartRepository.save(cart);
-                    } else {
-                        oldCartItem.get().setSize(cartRequest.getSize());
-                        oldCartItem.get().setQuantity(cartRequest.getQuantity());
-                        oldCartItem.get().setTotalPrice(oldCartItem.get().getProduct().getDiscountedPrice() * cartRequest.getQuantity());
-                        oldCartItem.get().setUpdateBy(user.getEmail());
-
-                        cart = cartRepository.save(oldCartItem.get());
-                    }
-
-                    CartItemResponse cartItemResponse = new CartItemResponse();
-
-                    cartItemResponse.setId(cart.getId());
-                    cartItemResponse.setIdProduct(cart.getProduct().getId());
-                    cartItemResponse.setNameProduct(cart.getProduct().getName());
-                    cartItemResponse.setTitleProduct(cart.getProduct().getTitle());
-                    cartItemResponse.setColor(cart.getProduct().getColor());
-                    cartItemResponse.setTotalPrice(cart.getTotalPrice());
-                    cartItemResponse.setSize(cart.getSize());
-                    cartItemResponse.setMainImageBase64(cart.getProduct().getMainImageBase64());
-                    cartItemResponse.setQuantity(cart.getQuantity());
-                    cartItemResponse.setSizeProduct(cart.getProduct().getSizes());
-
-                    return cartItemResponse;
-                } else {
-                    throw new CustomException("Invalid quantity !!!");
+                Optional<Product> product = productRepository.findById(cartRequest.getProductId());
+                if (product.isEmpty()) {
+                    throw new CustomException("Product not found !!!");
                 }
+                for (Size size : product.get().getSizes()) {
+                    if (Objects.equals(size.getName(), cartRequest.getSize()) && (size.getQuantity() < cartRequest.getQuantity())) {
+                        throw new CustomException("You can only buy up to " + size.getQuantity() + " products for size " + size.getName());
+                    }
+                }
+
+                List<Cart> cartOfUser = cartRepository.findByUserIdOrderByIdDesc(user.getId());
+
+                // kiểm tra xem trong giỏ hàng của user đó có tồn tại sản phẩm có cùng size hay k
+                // nếu có thì gộp làm 1 ngược lại thì cập nhật bth
+                List<Cart> checkCartExist = cartOfUser.stream().filter(c ->
+                        (c.getSize() == cartRequest.getSize()
+                                && Objects.equals(c.getProduct().getId(), cartRequest.getProductId())
+                                && !Objects.equals(c.getId(), id))).toList();
+
+                if (checkCartExist.size() > 0) {
+                    int quantity = cartRequest.getQuantity() + checkCartExist.get(0).getQuantity();
+                    cart.setUser(user);
+                    cart.setProduct(checkCartExist.get(0).getProduct());
+                    cart.setSize(checkCartExist.get(0).getSize());
+                    cart.setQuantity(Math.min(quantity, 10));
+                    cart.setTotalPrice(checkCartExist.get(0).getProduct().getDiscountedPrice() * cart.getQuantity());
+                    cart.setCreatedBy(user.getEmail());
+                    cart.setUpdateBy(user.getEmail());
+
+                    cartRepository.delete(oldCartItem.get());
+                    cartRepository.delete(checkCartExist.get(0));
+
+                    cart = cartRepository.save(cart);
+                } else {
+                    oldCartItem.get().setSize(cartRequest.getSize());
+                    oldCartItem.get().setQuantity(cartRequest.getQuantity());
+                    oldCartItem.get().setTotalPrice(oldCartItem.get().getProduct().getDiscountedPrice() * cartRequest.getQuantity());
+                    oldCartItem.get().setUpdateBy(user.getEmail());
+
+                    cart = cartRepository.save(oldCartItem.get());
+                }
+
+                CartItemResponse cartItemResponse = new CartItemResponse();
+
+                cartItemResponse.setId(cart.getId());
+                cartItemResponse.setIdProduct(cart.getProduct().getId());
+                cartItemResponse.setNameProduct(cart.getProduct().getName());
+                cartItemResponse.setTitleProduct(cart.getProduct().getTitle());
+                cartItemResponse.setColor(cart.getProduct().getColor());
+                cartItemResponse.setTotalPrice(cart.getTotalPrice());
+                cartItemResponse.setSize(cart.getSize());
+                cartItemResponse.setMainImageBase64(cart.getProduct().getMainImageBase64());
+                cartItemResponse.setQuantity(cart.getQuantity());
+                cartItemResponse.setSizeProduct(cart.getProduct().getSizes());
+
+                return cartItemResponse;
             } else {
                 throw new CustomException("You do not have permission to update !!!");
             }
@@ -198,6 +206,7 @@ public class CartServiceImpl implements CartService {
         }
     }
 
+    @Transactional
     @Override
     public String deleteMultiCartItem(List<Long> idProducts) throws CustomException {
         String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);

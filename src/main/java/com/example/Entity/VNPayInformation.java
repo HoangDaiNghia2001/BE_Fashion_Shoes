@@ -32,7 +32,7 @@ public class VNPayInformation {
     private long vnp_Amount;
 
     @OneToOne(cascade = CascadeType.REMOVE, orphanRemoval = true)
-    @JoinColumn(name = "order_id")
+    @JoinColumn(name = "order_id", referencedColumnName = "id")
     private Order order;
 
     public VNPayInformation() {

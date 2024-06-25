@@ -6,7 +6,10 @@ import com.example.request.OtpRequest;
 import com.example.request.PasswordRequest;
 import com.example.request.ResetPasswordRequest;
 import com.example.request.UserRequest;
+import com.example.response.ListUsersResponse;
 import com.example.response.Response;
+import com.example.response.TopFiveUsersBoughtTheMostResponse;
+import com.example.response.UserResponse;
 import jakarta.mail.MessagingException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,9 +27,7 @@ public interface UserService {
 
     void registerAdmin(UserRequest admin) throws CustomException;
 
-    List<User> getAllUser(int pageIndex, int pageSize);
-
-    String deleteUser(Long id) throws CustomException;
+    ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize);
 
     User updateInformation(UserRequest user, String token) throws CustomException, IOException;
 
@@ -47,4 +48,14 @@ public interface UserService {
     Response validateOtp(OtpRequest otpRequest) throws CustomException;
 
     Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws CustomException;
+
+    Long totalUsers();
+
+    List<TopFiveUsersBoughtTheMostResponse> getTopFiveUsersBoughtTheMost();
+
+    void createUserByAdmin(UserRequest userRequest) throws CustomException, MessagingException;
+    void updateUserByAdmin(long id, UserRequest userRequest) throws CustomException, MessagingException;
+    Response deleteUserByAdmin(long id) throws CustomException, MessagingException;
+    Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException;
+
 }

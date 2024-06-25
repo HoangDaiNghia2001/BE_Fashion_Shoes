@@ -81,6 +81,7 @@ public class ApiAccount {
 
         UserResponse userInformation = new UserResponse();
         userInformation.setId(userDetails.getUser().getId());
+        userInformation.setCode(userDetails.getUser().getCode());
         userInformation.setAddress(userDetails.getUser().getAddress());
         userInformation.setDistrict(userDetails.getUser().getDistrict());
         userInformation.setProvince(userDetails.getUser().getProvince());
@@ -135,6 +136,7 @@ public class ApiAccount {
             UserResponse userInformation = new UserResponse();
 
             userInformation.setId(userDetails.getUser().getId());
+            userInformation.setCode(userDetails.getUser().getCode());
             userInformation.setAddress(userDetails.getUser().getAddress());
             userInformation.setDistrict(userDetails.getUser().getDistrict());
             userInformation.setProvince(userDetails.getUser().getProvince());
@@ -250,7 +252,7 @@ public class ApiAccount {
 
         ResponseCookie emailCookie = emailUtil.generateEmailCookie(emailRequest.getEmail());
 
-        emailUtil.sendOtpEmail(emailRequest.getEmail(), otp);
+        emailUtil.sendOtpEmail(emailRequest.getEmail(), otp, emailRequest.getEmail());
 
         Response response = new Response();
         response.setMessage("OTP code has been sent to your email !!!");

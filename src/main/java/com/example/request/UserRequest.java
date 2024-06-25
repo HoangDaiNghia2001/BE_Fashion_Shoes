@@ -1,6 +1,6 @@
 package com.example.request;
 
-import java.util.Set;
+import java.util.List;
 
 public class UserRequest {
     private String firstName;
@@ -14,12 +14,14 @@ public class UserRequest {
     private String district;
     private String ward;
     private String avatarBase64;
+    private List<String> roles;
 
     public UserRequest() {
     }
 
-    public UserRequest(String firstName, String lastName, String email, String password, String gender, String mobile,
-                       String address, String province, String district, String ward, String avatarBase64) {
+    public UserRequest(String firstName, String lastName, String email, String password,
+                       String gender, String mobile, String address, String province, String district,
+                       String ward, String avatarBase64, List<String> roles) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
@@ -31,6 +33,15 @@ public class UserRequest {
         this.district = district;
         this.ward = ward;
         this.avatarBase64 = avatarBase64;
+        this.roles = roles;
+    }
+
+    public List<String> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List<String> roles) {
+        this.roles = roles;
     }
 
     public String getEmail() {

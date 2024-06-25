@@ -4,17 +4,18 @@ import com.example.Entity.*;
 import com.example.config.JwtProvider;
 import com.example.config.VNPayConfig;
 import com.example.constant.CookieConstant;
+import com.example.constant.JwtConstant;
 import com.example.constant.OrderConstant;
 import com.example.exception.CustomException;
 import com.example.repository.*;
 import com.example.request.OrderProductQuantityRequest;
 import com.example.request.OrderRequest;
 import com.example.request.OrderUpdateRequest;
-import com.example.response.OrderLineResponse;
-import com.example.response.ListOrderResponse;
-import com.example.response.OrderResponse;
+import com.example.response.*;
 import com.example.service.OrderService;
 import com.example.service.UserService;
+import com.example.util.EmailUtil;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -26,8 +27,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -48,9 +51,24 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private VNPayRepository vnPayRepository;
 
+    @Autowired
+    private EmailUtil emailUtil;
+
+    private String generateUniqueCode() {
+        String code;
+        Order existingOrder;
+        do {
+            String uuid = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 6);
+            code = LocalDate.now().toString().replaceAll("-","") + "_" + uuid;
+            existingOrder = orderRepository.findByCode(code);
+        } while (existingOrder != null);
+
+        return code.toUpperCase();
+    }
+
     @Override
     @Transactional
-    public void placeOrderCOD(OrderRequest orderRequest) throws CustomException {
+    public void placeOrderCOD(OrderRequest orderRequest) throws CustomException, MessagingException {
         // nếu số lượng sản phẩm order nhiều hơn số lượng sản phẩm có trong kho thì
         // nhân viên phải liên hệ khách hàng để thỏa thuận lại về đơn hàng
 
@@ -66,6 +84,7 @@ public class OrderServiceImpl implements OrderService {
 
         List<Boolean> checkExists = new ArrayList<>();
 
+        // kiem tra xem san pham request co dang nam trong gio hang hay khong
         orderProductQuantityRequests.forEach(p -> {
             checkExists.add(cartOfUser.stream().anyMatch(c -> (Objects.equals(c.getProduct().getId(), p.getProductId()) && (c.getSize() == p.getSize()))));
         });
@@ -74,51 +93,51 @@ public class OrderServiceImpl implements OrderService {
 
         if (existItem) {
             throw new CustomException("Some products not exits in your cart, Please check again and follow the correct steps !!!");
-        } else {
-            double totalPrice = 0;
-            // create order
-            Order order = new Order();
+        }
 
-            order.setAddress(orderRequest.getAddress());
-            order.setDistrict(orderRequest.getDistrict());
-            order.setProvince(orderRequest.getProvince());
-            order.setWard(orderRequest.getWard());
-            order.setFullName(orderRequest.getFullName());
-            order.setUser(user);
-            order.setAlternatePhoneNumber(orderRequest.getAlternatePhoneNumber());
-            order.setPhoneNumber(orderRequest.getPhoneNumber());
-            order.setStatus(OrderConstant.ORDER_PENDING);
-            order.setTransportFee(orderRequest.getTransportFee());
-            order.setCreatedBy(user.getEmail());
-            for (OrderProductQuantityRequest p : orderProductQuantityRequests) {
-                totalPrice += p.getTotalPrice();
+        double totalPrice = 0;
+        // create order
+        Order order = new Order();
+
+        order.setCode(generateUniqueCode());
+        order.setAddress(orderRequest.getAddress());
+        order.setDistrict(orderRequest.getDistrict());
+        order.setProvince(orderRequest.getProvince());
+        order.setWard(orderRequest.getWard());
+        order.setFullName(orderRequest.getFullName());
+        order.setUser(user);
+        order.setAlternatePhoneNumber(orderRequest.getAlternatePhoneNumber());
+        order.setPhoneNumber(orderRequest.getPhoneNumber());
+        order.setStatus(OrderConstant.ORDER_PENDING);
+        order.setTransportFee(orderRequest.getTransportFee());
+        order.setCreatedBy(user.getEmail());
+        for (OrderProductQuantityRequest p : orderProductQuantityRequests) {
+            totalPrice += p.getTotalPrice();
+        }
+        order.setTotalPrice(totalPrice + order.getTransportFee());
+        order.setNote(orderRequest.getNote());
+        order.setPaymentMethod(orderRequest.getPaymentMethod());
+        order.setOrderDate(LocalDateTime.now());
+        order.setPay(OrderConstant.ORDER_UNPAID);
+        order = orderRepository.save(order); // => order success
+
+        // create order line
+        for (OrderProductQuantityRequest productOrder : orderProductQuantityRequests) {
+            Optional<Product> product = productRepository.findById(productOrder.getProductId());
+
+            if (!product.isPresent()) {
+                throw new CustomException("Product not found !!!");
             }
-            order.setTotalPrice(totalPrice + order.getTransportFee());
-            order.setNote(orderRequest.getNote());
-            order.setPaymentMethod(orderRequest.getPaymentMethod());
-            order.setOrderDate(LocalDateTime.now());
-            order.setPay(OrderConstant.ORDER_UNPAID);
-            order = orderRepository.save(order); // => order success
+            OrderLine orderLine = new OrderLine();
 
-            // create order line
-            for (OrderProductQuantityRequest productOrder : orderProductQuantityRequests) {
-                Optional<Product> product = productRepository.findById(productOrder.getProductId());
+            orderLine.setOrder(order);
+            orderLine.setProduct(product.get());
+            orderLine.setQuantity(productOrder.getQuantity());
+            orderLine.setSize(productOrder.getSize());
+            orderLine.setCreatedBy(user.getEmail());
+            orderLine.setTotalPrice(productOrder.getTotalPrice());
 
-                if (product.isPresent()) {
-                    OrderLine orderLine = new OrderLine();
-
-                    orderLine.setOrder(order);
-                    orderLine.setProduct(product.get());
-                    orderLine.setQuantity(productOrder.getQuantity());
-                    orderLine.setSize(productOrder.getSize());
-                    orderLine.setCreatedBy(user.getEmail());
-                    orderLine.setTotalPrice(productOrder.getTotalPrice());
-
-                    orderLineRepository.save(orderLine);
-                } else {
-                    throw new CustomException("Product not found !!!");
-                }
-            }
+            orderLineRepository.save(orderLine);
 
             // delete product in cart of user
             cartOfUser.forEach(c -> {
@@ -127,6 +146,9 @@ public class OrderServiceImpl implements OrderService {
                     cartRepository.delete(c);
                 }
             });
+
+            OrderResponse orderResponse = getOrderNewestByEmail();
+            emailUtil.sendOrderEmail(orderResponse);
         }
     }
 
@@ -153,16 +175,16 @@ public class OrderServiceImpl implements OrderService {
         vnp_Params.put("vnp_IpAddr", VNPayConfig.vnp_IpAddr);
 
         // chạy localhost
-//        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
-//        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-//        String vnp_CreateDate = formatter.format(cld.getTime());
-//        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-
-        // chạy trên railway giờ London
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Europe/London"));
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
         String vnp_CreateDate = formatter.format(cld.getTime());
         vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+
+        // chạy trên railway giờ London
+//        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Europe/London"));
+//        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+//        String vnp_CreateDate = formatter.format(cld.getTime());
+//        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
         // do lệch múi giờ ở phần domain là 7 tiếng (giờ ở Lodon với giờ ở Việt Nam) nên phải set up vnp_ExpireDate có thời gian là 8 tiếng
         cld.add(Calendar.MINUTE, 480);
@@ -203,55 +225,61 @@ public class OrderServiceImpl implements OrderService {
         return VNPayConfig.vnp_PayUrl + "?" + queryUrl;
     }
 
+    private OrderResponse generateOrderResponse(Order order){
+        OrderResponse orderResponse = new OrderResponse();
+
+        orderResponse.setId(order.getId());
+        orderResponse.setCode(order.getCode());
+        orderResponse.setFullName(order.getFullName());
+        orderResponse.setEmail(order.getCreatedBy());
+        orderResponse.setPay(order.getPay());
+        orderResponse.setPhoneNumber(order.getPhoneNumber());
+        orderResponse.setAlternatePhone(order.getAlternatePhoneNumber());
+        orderResponse.setAddress(order.getAddress());
+        orderResponse.setWard(order.getWard());
+        orderResponse.setDistrict(order.getDistrict());
+        orderResponse.setProvince(order.getProvince());
+        orderResponse.setNotes(order.getNote());
+        orderResponse.setDeliveryDate(order.getDeliveryDate());
+        orderResponse.setReceivingDate(order.getReceivingDate());
+        orderResponse.setUpdateAtUser(order.getUpdateAtUser());
+        orderResponse.setUpdateByUser(order.getUpdateByUser());
+        orderResponse.setPaymentMethod(order.getPaymentMethod());
+        orderResponse.setStatusOrder(order.getStatus());
+        orderResponse.setTotalPrice(order.getTotalPrice());
+        orderResponse.setTransportFee(order.getTransportFee());
+        orderResponse.setOrderDate(order.getOrderDate());
+        List<OrderLineResponse> orderLineResponseList = new ArrayList<>();
+
+        List<OrderLine> orderLines = orderLineRepository.findByOrderId(order.getId());
+
+        orderLines.forEach(orderLine -> {
+            Optional<Product> product = productRepository.findById(orderLine.getProduct().getId());
+
+            OrderLineResponse orderLineResponse = new OrderLineResponse();
+
+            orderLineResponse.setProductId(product.get().getId());
+            orderLineResponse.setBrand(product.get().getBrandProduct().getName());
+            orderLineResponse.setMainImageBase64(product.get().getMainImageBase64());
+            orderLineResponse.setQuantity(orderLine.getQuantity());
+            orderLineResponse.setSize(orderLine.getSize());
+            orderLineResponse.setNameProduct(product.get().getName());
+            orderLineResponse.setTotalPrice(orderLine.getTotalPrice());
+
+            orderLineResponseList.add(orderLineResponse);
+        });
+
+        orderResponse.setOrderLines(orderLineResponseList);
+
+        return orderResponse;
+    }
+
     @Override
     public List<OrderResponse> getOrdersResponse(List<Order> orders) {
         List<OrderResponse> orderResponseList = new ArrayList<>();
 
         orders.forEach(order -> {
-            OrderResponse orderResponse = new OrderResponse();
-
-            orderResponse.setId(order.getId());
-            orderResponse.setFullName(order.getFullName());
-            orderResponse.setEmail(order.getCreatedBy());
-            orderResponse.setPay(order.getPay());
-            orderResponse.setPhoneNumber(order.getPhoneNumber());
-            orderResponse.setAlternatePhone(order.getAlternatePhoneNumber());
-            orderResponse.setAddress(order.getAddress());
-            orderResponse.setWard(order.getWard());
-            orderResponse.setDistrict(order.getDistrict());
-            orderResponse.setProvince(order.getProvince());
-            orderResponse.setNotes(order.getNote());
-            orderResponse.setDeliveryDate(order.getDeliveryDate());
-            orderResponse.setReceivingDate(order.getReceivingDate());
-            orderResponse.setUpdateAtUser(order.getUpdateAtUser());
-            orderResponse.setUpdateByUser(order.getUpdateByUser());
-            orderResponse.setPaymentMethod(order.getPaymentMethod());
-            orderResponse.setStatusOrder(order.getStatus());
-            orderResponse.setTotalPrice(order.getTotalPrice());
-            orderResponse.setTransportFee(order.getTransportFee());
-            orderResponse.setOrderDate(order.getOrderDate());
-            List<OrderLineResponse> orderLineResponseList = new ArrayList<>();
-
-            List<OrderLine> orderLines = orderLineRepository.findByOrderId(order.getId());
-
-            orderLines.forEach(orderLine -> {
-                Optional<Product> product = productRepository.findById(orderLine.getProduct().getId());
-
-                OrderLineResponse orderLineResponse = new OrderLineResponse();
-
-                orderLineResponse.setProductId(product.get().getId());
-                orderLineResponse.setBrand(product.get().getBrandProduct().getName());
-                orderLineResponse.setMainImageBase64(product.get().getMainImageBase64());
-                orderLineResponse.setQuantity(orderLine.getQuantity());
-                orderLineResponse.setSize(orderLine.getSize());
-                orderLineResponse.setNameProduct(product.get().getName());
-                orderLineResponse.setTotalPrice(orderLine.getTotalPrice());
-
-                orderLineResponseList.add(orderLineResponse);
-            });
-
-            orderResponse.setOrderLines(orderLineResponseList);
-
+            OrderResponse orderResponse = generateOrderResponse(order);
             orderResponseList.add(orderResponse);
         });
         return orderResponseList;
@@ -339,7 +367,7 @@ public class OrderServiceImpl implements OrderService {
                 if (Objects.equals(user.getId(), order.get().getUser().getId())) {
                     if (order.get().getPaymentMethod().equals("VNPAY")) {
                         VNPayInformation vnPayInformation = vnPayRepository.findByOrderId(order.get().getId());
-                        if(vnPayInformation != null){
+                        if (vnPayInformation != null) {
                             vnPayRepository.delete(vnPayInformation);
                         }
                     }
@@ -465,16 +493,11 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrderByAdmin(Long id) throws CustomException {
         Optional<Order> order = orderRepository.findById(id);
 
-        if (order.isPresent()) {
-            if (order.get().getPaymentMethod().equals("VNPAY")) {
-                VNPayInformation vnPayInformation = vnPayRepository.findByOrderId(order.get().getId());
+        if (order.isEmpty()) {
 
-                vnPayRepository.delete(vnPayInformation);
-            }
-            orderRepository.delete(order.get());
-        } else {
             throw new CustomException("Not found order have id: " + id + " !!!");
         }
+        orderRepository.delete(order.get());
     }
 
     @Override
@@ -487,9 +510,24 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public long findOrderIdNewest() {
-        return orderRepository.getOrderIdNewest();
+        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
+        String email = (String) jwtProvider.getClaimsFormToken(token).get("email");
+
+        Order order = orderRepository.getOrderIdNewest(email);
+        return order.getId();
     }
 
+    @Override
+    public OrderResponse getOrderNewestByEmail() {
+        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
+        String email = (String) jwtProvider.getClaimsFormToken(token).get("email");
+
+        Order order = orderRepository.getOrderIdNewest(email);
+
+        return generateOrderResponse(order);
+    }
+
+    @Transactional
     @Override
     public void updatePayOfOrderVNPay(String vnp_ResponseCode, Long orderId) throws CustomException {
         Optional<Order> order = orderRepository.findById(orderId);
@@ -505,6 +543,23 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    @Transactional
+    @Override
+    public void updatePayOfOrderPayPal(String approved, Long orderId) throws CustomException {
+        Optional<Order> order = orderRepository.findById(orderId);
+        if (order.isPresent()) {
+            if (approved.equals("approved")) {
+                order.get().setPay(OrderConstant.ORDER_PAID);
+            } else {
+                order.get().setPay(OrderConstant.ORDER_UNPAID);
+            }
+            orderRepository.save(order.get());
+        } else {
+            throw new CustomException("Order not found !!!");
+        }
+    }
+
+    @Transactional
     @Override
     public void updateOrderByUser(Long orderId, OrderUpdateRequest orderUpdateRequest) throws CustomException {
         Optional<Order> orderUpdate = orderRepository.findById(orderId);
@@ -532,4 +587,53 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    @Override
+    public Long totalOrders() {
+        return orderRepository.count();
+    }
+
+    @Override
+    public Double revenue() {
+        return orderRepository.sumTotalPrice();
+    }
+
+    @Override
+    public List<QuantityByBrandResponse> quantityProductSoldByBrand() {
+        return orderLineRepository.quantityProductSoldByBrand();
+    }
+
+    @Override
+    public List<OrderStatisticalByYearResponse> statisticByYear(int year) {
+        List<OrderStatisticalByYearResponse> statistical = orderRepository.statisticByYear(year);
+
+        for (int month = 1; month <= 12; month++) {
+            final int currentMonth = month;
+            Optional<OrderStatisticalByYearResponse> monthExist = statistical.stream()
+                    .filter(item -> Objects.equals(item.getMonth(), currentMonth))
+                    .findFirst();
+
+            if (!monthExist.isPresent()) {
+                statistical.add(new OrderStatisticalByYearResponse(currentMonth, 0));
+            }
+        }
+
+        return statistical.stream()
+                .sorted((a, b) -> Integer.compare(a.getMonth(), b.getMonth()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getAllYearInOrder() {
+        return orderRepository.getAllYearInOrder();
+    }
+
+    @Override
+    public long averageOrdersValue() {
+        return Math.round(orderRepository.averageOrdersValue());
+    }
+
+    @Override
+    public long sold() {
+        return orderLineRepository.sold();
+    }
 }

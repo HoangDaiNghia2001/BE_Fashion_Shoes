@@ -36,23 +36,24 @@ public class JwtProvider {
         String token = generateToken(user);
 
         return ResponseCookie.from(name, token)
-                .domain(".railway.app")
+//                .domain(".railway.app")
                 .path("/")
                 .maxAge(10*60)
+//                .maxAge(60*60)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+//                .sameSite("None")600000
                 .build();
     }
 
     public ResponseCookie generateRefreshTokenCodeCookie(String name, String refreshTokenCode) {
         return ResponseCookie.from(name, refreshTokenCode)
-                .domain(".railway.app")
+//                .domain(".railway.app")
                 .path("/")
                 .maxAge(24 * 60 * 60 * 10)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+//                .sameSite("None")
                 .build();
     }
 
@@ -77,23 +78,23 @@ public class JwtProvider {
 
     public ResponseCookie cleanTokenCookie(String name) {
         return ResponseCookie.from(name, "")
-                .domain(".railway.app")
+//                .domain(".railway.app")
                 .path("/")
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+//                .sameSite("None")
                 .build();
     }
 
     public ResponseCookie cleanRefreshTokenCodeCookie(String name){
         return ResponseCookie.from(name, "")
-                .domain(".railway.app")
+//                .domain(".railway.app")
                 .path("/")
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+//                .sameSite("None")
                 .build();
     }
 
@@ -113,6 +114,9 @@ public class JwtProvider {
     }
 
     public Claims getClaimsFormToken(String jwt) {
+        if (jwt == null) {
+            throw new IllegalArgumentException("JWT String argument cannot be null or empty !!!");
+        }
         return Jwts.parserBuilder()
                 .setSigningKey(key())
                 .build()

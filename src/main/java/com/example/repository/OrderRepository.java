@@ -1,6 +1,8 @@
 package com.example.repository;
 
 import com.example.Entity.Order;
+import com.example.response.OrderStatisticalByYearResponse;
+import com.example.response.UserResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -43,6 +45,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                                 LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd);
 
 
-    @Query("select o.id from Order o order by o.id desc limit 1")
-    long getOrderIdNewest();
+    @Query("select sum(o.totalPrice) from Order o where o.pay = 'PAID'")
+    Double sumTotalPrice();
+
+    @Query("select o from Order o where o.createdBy = ?1 order by o.id desc limit 1")
+    Order getOrderIdNewest(String email);
+
+    @Query("select new com.example.response.OrderStatisticalByYearResponse(month (o.orderDate), sum(o.totalPrice)) " +
+            "from Order o " +
+            "where year (o.orderDate)= ?1 " +
+            "group by month (o.orderDate)")
+    List<OrderStatisticalByYearResponse> statisticByYear(int year);
+
+    @Query("select distinct year (o.createdAt) from Order o")
+    List<String> getAllYearInOrder();
+
+    @Query("select avg(o.totalPrice) from Order o")
+    double averageOrdersValue();
+
+    Order findByCode(String code);
 }

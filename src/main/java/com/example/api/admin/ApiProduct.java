@@ -4,9 +4,7 @@ import com.example.Entity.Product;
 import com.example.exception.CustomException;
 import com.example.request.FilterProductsByAdminRequest;
 import com.example.request.ProductRequest;
-import com.example.response.ProductResponse;
-import com.example.response.Response;
-import com.example.response.ResponseData;
+import com.example.response.*;
 import com.example.service.implement.ProductServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -77,19 +75,19 @@ public class ApiProduct {
     // CALL SUCCESS
     @GetMapping("/products")
     public ResponseEntity<?> filterProducts(@RequestParam(value = "name", required = false) String name,
-                                            @RequestParam(value = "brandId",required = false) Long brandId,
-                                            @RequestParam(value = "parentCategoryId",required = false) Long parentCategoryId,
-                                            @RequestParam(value = "childCategoryId",required = false) Long childCategoryId,
-                                            @RequestParam(value = "color",required = false) String color,
-                                            @RequestParam(value = "discountedPercent",required = false) Integer discountedPercent,
-                                            @RequestParam(value = "createBy",required = false) String createBy,
-                                            @RequestParam(value = "updateBy",required = false) String updateBy,
-                                            @RequestParam(value = "id",required = false) Long id,
-                                            @RequestParam(value = "price",required = false) Double price,
+                                            @RequestParam(value = "brandId", required = false) Long brandId,
+                                            @RequestParam(value = "parentCategoryId", required = false) Long parentCategoryId,
+                                            @RequestParam(value = "childCategoryId", required = false) Long childCategoryId,
+                                            @RequestParam(value = "color", required = false) String color,
+                                            @RequestParam(value = "discountedPercent", required = false) Integer discountedPercent,
+                                            @RequestParam(value = "createBy", required = false) String createBy,
+                                            @RequestParam(value = "updateBy", required = false) String updateBy,
+                                            @RequestParam(value = "code", required = false) String code,
+                                            @RequestParam(value = "price", required = false) Double price,
                                             @RequestParam("pageIndex") int pageIndex,
                                             @RequestParam("pageSize") int pageSize) throws CustomException {
         ProductResponse productResponse = productService.filterProductsByAdmin(name, brandId, parentCategoryId, childCategoryId,
-                color, discountedPercent, createBy, updateBy,id, price, pageIndex, pageSize);
+                color, discountedPercent, createBy, updateBy, code, price, pageIndex, pageSize);
 
         ResponseData<ProductResponse> responseData = new ResponseData<>();
         responseData.setResults(productResponse);
@@ -98,4 +96,42 @@ public class ApiProduct {
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
+
+    @GetMapping("/products/quantity")
+    public ResponseEntity<?> quantityByBrand() {
+        List<QuantityByBrandResponse> quantity = productService.countQuantityByBrand();
+
+        ResponseData<List<QuantityByBrandResponse>> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Count quantity by Brand success !!!");
+        responseData.setResults(quantity);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/products/top-ten/best-seller")
+    public ResponseEntity<?> getTopTenBestSeller(){
+        List<TopBestSellerResponse> topTen = productService.topTenBestSeller();
+
+        ResponseData<List<TopBestSellerResponse>> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get top 10 products best seller success !!!");
+        responseData.setResults(topTen);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/products/stock")
+    public ResponseEntity<?> stock(){
+        long total = productService.stock();
+
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get total products stock success !!!");
+        responseData.setResults(total);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+
 }

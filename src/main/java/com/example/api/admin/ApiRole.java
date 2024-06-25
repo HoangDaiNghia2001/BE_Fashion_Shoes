@@ -22,9 +22,9 @@ public class ApiRole {
     @Autowired
     JwtProvider jwtProvider;
 
-    @GetMapping("/role")
-    public ResponseEntity<?> getAllRole(@RequestParam("pageIndex") int pageIndex, @RequestParam("pageSize")int pageSize){
-        return new ResponseEntity<>(roleService.getAllRole(pageIndex,pageSize),HttpStatus.OK);
+    @GetMapping("/roles")
+    public ResponseEntity<?> getAllRole(){
+        return new ResponseEntity<>(roleService.getAllRole(),HttpStatus.OK);
     }
 
     @PostMapping("/role")

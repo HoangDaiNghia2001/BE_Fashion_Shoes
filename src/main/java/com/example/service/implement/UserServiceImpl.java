@@ -11,7 +11,10 @@ import com.example.request.OtpRequest;
 import com.example.request.PasswordRequest;
 import com.example.request.ResetPasswordRequest;
 import com.example.request.UserRequest;
+import com.example.response.ListUsersResponse;
 import com.example.response.Response;
+import com.example.response.TopFiveUsersBoughtTheMostResponse;
+import com.example.response.UserResponse;
 import com.example.service.UserService;
 import com.example.util.EmailUtil;
 import com.example.util.OTPUtil;
@@ -25,8 +28,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
+import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -44,6 +48,9 @@ public class UserServiceImpl implements UserService {
     private OTPUtil otpUtil;
     @Autowired
     private EmailUtil emailUtil;
+
+    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_+=<>?";
+    private static final int PASSWORD_LENGTH = 12;
 
     @Override
     public User findUserById(Long id) throws CustomException {
@@ -70,6 +77,18 @@ public class UserServiceImpl implements UserService {
         throw new CustomException("User not found with email: " + email);
     }
 
+    private String generateUniqueCode() {
+        String code;
+        User existingUser;
+        do {
+            String uuid = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 6);
+            code = LocalDate.now().toString().replaceAll("-", "") + "_" + uuid;
+            existingUser = userRepository.findByCode(code);
+        } while (existingUser != null);
+
+        return code.toUpperCase();
+    }
+
     @Override
     @Transactional
     public void registerUser(UserRequest userRequest) throws CustomException {
@@ -83,6 +102,7 @@ public class UserServiceImpl implements UserService {
             Role role = roleService.findByName(RoleConstant.USER);
 
             user.getRoles().add(role);
+            user.setCode(generateUniqueCode());
             user.setPassword(passwordEncoder.encode(userRequest.getPassword()));
             user.setFirstName(userRequest.getFirstName());
             user.setLastName(userRequest.getLastName());
@@ -120,6 +140,7 @@ public class UserServiceImpl implements UserService {
             admin.getRoles().add(userRole);
             admin.getRoles().add(adminRole);
             admin.setCreatedBy(createdBy);
+            admin.setCode(generateUniqueCode());
             admin.setPassword(passwordEncoder.encode(adminRequest.getPassword()));
             admin.setFirstName(adminRequest.getFirstName());
             admin.setLastName(adminRequest.getLastName());
@@ -136,20 +157,50 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> getAllUser(int pageIndex, int pageSize) {
-        Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
-        return userRepository.findAll(pageable).getContent();
-    }
+    public ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize) {
+        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
+        String emailPresent = (String) jwtProvider.getClaimsFormToken(token).get("email");
 
-    @Override
-    @Transactional
-    public String deleteUser(Long id) throws CustomException {
-        User user = findUserById(id);
-        if (user != null) {
-            userRepository.delete(user);
-            return "Delete success !!!";
-        }
-        return "User not found with id: " + id;
+        List<User> users = userRepository.filterUserByAdmin(code, email, province, district, ward, emailPresent);
+
+        Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
+        int startIndex = (int) pageable.getOffset();
+        int endIndex = Math.min((startIndex + pageable.getPageSize()), users.size());
+
+        List<UserResponse> userResponseList = new ArrayList<>();
+
+        List<User> usersSubList = users.subList(startIndex, endIndex);
+        usersSubList.forEach(user -> {
+            UserResponse userResponse = new UserResponse();
+            userResponse.setId(user.getId());
+            userResponse.setCode(user.getCode());
+            // convert Set to String
+            StringBuilder sb = new StringBuilder();
+            for (Role item : user.getRoles()) {
+                if (sb.length() > 0) {
+                    sb.append("-");
+                }
+                sb.append(item.getName());
+            }
+            userResponse.setRoles(sb.toString());
+            userResponse.setFirstName(user.getFirstName());
+            userResponse.setLastName(user.getLastName());
+            userResponse.setEmail(user.getEmail());
+            userResponse.setGender(user.getGender());
+            userResponse.setMobile(user.getMobile());
+            userResponse.setAddress(user.getAddress());
+            userResponse.setWard(user.getWard());
+            userResponse.setDistrict(user.getDistrict());
+            userResponse.setProvince(user.getProvince());
+            userResponse.setCreateAt(user.getCreatedAt());
+
+            userResponseList.add(userResponse);
+        });
+        ListUsersResponse usersResponse = new ListUsersResponse();
+        usersResponse.setUsers(userResponseList);
+        usersResponse.setTotal(users.size());
+
+        return usersResponse;
     }
 
     @Override
@@ -207,7 +258,7 @@ public class UserServiceImpl implements UserService {
 
             user = userRepository.save(user);
 
-            response.setMessage("Change password success !!!");
+            response.setMessage("Change password success");
             response.setSuccess(true);
             return response;
         } else {
@@ -220,7 +271,7 @@ public class UserServiceImpl implements UserService {
     public Response changePasswordUser(PasswordRequest passwordRequest) throws CustomException {
         String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
 
-       return changePassword(passwordRequest, token);
+        return changePassword(passwordRequest, token);
     }
 
     @Override
@@ -244,7 +295,7 @@ public class UserServiceImpl implements UserService {
     public Response validateOtp(OtpRequest otpRequest) throws CustomException {
         String otpCookie = otpUtil.getOtpFromCookie(request);
 
-        if(otpCookie != null){
+        if (otpCookie != null) {
             if (otpCookie.equals(otpRequest.getOtp())) {
                 Response response = new Response();
                 response.setSuccess(true);
@@ -276,5 +327,127 @@ public class UserServiceImpl implements UserService {
         } else {
             throw new CustomException("Email on cookie is empty !!!");
         }
+    }
+
+    @Override
+    public Long totalUsers() {
+        return userRepository.count();
+    }
+
+    @Override
+    public List<TopFiveUsersBoughtTheMostResponse> getTopFiveUsersBoughtTheMost() {
+        return userRepository.getTopFiveUsersBoughtTheMost();
+    }
+
+    private String generatePassword() {
+        Random RANDOM = new SecureRandom();
+        StringBuilder password = new StringBuilder(PASSWORD_LENGTH);
+        for (int i = 0; i < PASSWORD_LENGTH; i++) {
+            password.append(CHARACTERS.charAt(RANDOM.nextInt(CHARACTERS.length())));
+        }
+        return password.toString();
+    }
+
+    @Override
+    public void createUserByAdmin(UserRequest userRequest) throws CustomException, MessagingException {
+        User checkExist = userRepository.findByEmail(userRequest.getEmail());
+
+        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
+        User admin = findUserProfileByJwt(token);
+
+        if (checkExist != null) {
+            throw new CustomException("Email is already exist !!!");
+        } else {
+            User user = new User();
+
+            for (String roleName : userRequest.getRoles()) {
+                Role role = roleService.findByName(roleName);
+                user.getRoles().add(role);
+            }
+
+            String password = generatePassword();
+            user.setPassword(passwordEncoder.encode(password));
+            user.setFirstName(userRequest.getFirstName());
+            user.setLastName(userRequest.getLastName());
+            user.setCode(generateUniqueCode());
+            user.setEmail(userRequest.getEmail());
+            user.setMobile(userRequest.getMobile());
+            user.setGender(userRequest.getGender().toUpperCase());
+            user.setAddress(userRequest.getAddress());
+            user.setProvince(userRequest.getProvince());
+            user.setDistrict(userRequest.getDistrict());
+            user.setWard(userRequest.getWard());
+            user.setCreatedBy(admin.getEmail());
+            userRepository.save(user);
+
+            emailUtil.sendPassWordEmail(userRequest.getEmail(), password , user.getLastName() + " " + user.getFirstName());
+        }
+    }
+
+    @Transactional
+    @Override
+    public void updateUserByAdmin(long id, UserRequest userRequest) throws CustomException, MessagingException {
+        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
+        User admin = findUserProfileByJwt(token);
+
+        User user = findUserById(id);
+        user.getRoles().clear();
+        for (String roleName : userRequest.getRoles()) {
+            Role role = roleService.findByName(roleName);
+            user.getRoles().add(role);
+        }
+        user.setFirstName(userRequest.getFirstName());
+        user.setLastName(userRequest.getLastName());
+        user.setGender(userRequest.getGender().toUpperCase());
+        user.setMobile(userRequest.getMobile());
+        user.setUpdateBy(admin.getEmail());
+        user.setAddress(userRequest.getAddress());
+        user.setProvince(userRequest.getProvince());
+        user.setDistrict(userRequest.getDistrict());
+        user.setWard(userRequest.getWard());
+
+        userRepository.save(user);
+        emailUtil.sendNotificationEmail(user.getEmail(), user.getLastName() + " " + user.getFirstName());
+    }
+
+    @Transactional
+    @Override
+    public Response deleteUserByAdmin(long id) throws CustomException, MessagingException {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isEmpty()) {
+            throw new CustomException("User not found !!!");
+        }
+        emailUtil.sendNotificationEmailDeleteUser(user.get().getEmail() , user.get().getLastName() + " " + user.get().getFirstName());
+        userRepository.delete(user.get());
+        Response response = new Response();
+        response.setSuccess(true);
+        response.setMessage("Delete user success !!!");
+        return response;
+    }
+
+    @Transactional
+    @Override
+    public Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException {
+        int count = 0;
+        List<Long> idsMiss = new ArrayList<>();
+        for (long id : ids) {
+            Optional<User> user = userRepository.findById(id);
+            if (user.isPresent()) {
+                emailUtil.sendNotificationEmailDeleteUser(user.get().getEmail() , user.get().getLastName() + " " + user.get().getFirstName());
+                userRepository.delete(user.get());
+                count++;
+            } else {
+                idsMiss.add(id);
+            }
+        }
+        Response response = new Response();
+        if (count == ids.size()) {
+            response.setSuccess(true);
+            response.setMessage("Delete some users success !!!");
+        } else {
+            response.setSuccess(true);
+            response.setMessage("Delete some users success, but not found some ids: " + idsMiss.toString() + " in list !!!");
+        }
+        return response;
     }
 }

@@ -3,12 +3,17 @@ package com.example.Entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
 @Table(name = "user")
 public class User extends BaseEntity {
+
+    @Column(name = "code")
+    private String code;
 
     @Column(name = "first_name")
     private String firstName;
@@ -51,11 +56,52 @@ public class User extends BaseEntity {
     )
     private Set<Role> roles = new HashSet<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE)
+    private List<Cart> carts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE)
+    private List<RefreshToken> refreshTokens = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE)
+    private List<Order> orders = new ArrayList<>();
+
     @JsonIgnore
     @OneToMany(mappedBy = "userOfComment", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<Comment> comments = new HashSet<>();
 
     //getter-setter
+
+    public List<Cart> getCarts() {
+        return carts;
+    }
+
+    public void setCarts(List<Cart> carts) {
+        this.carts = carts;
+    }
+
+    public List<RefreshToken> getRefreshTokens() {
+        return refreshTokens;
+    }
+
+    public void setRefreshTokens(List<RefreshToken> refreshTokens) {
+        this.refreshTokens = refreshTokens;
+    }
+
+    public List<Order> getOrders() {
+        return orders;
+    }
+
+    public void setOrders(List<Order> orders) {
+        this.orders = orders;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
 
     public String getMobile() {
         return mobile;
@@ -164,8 +210,12 @@ public class User extends BaseEntity {
     public User() {
     }
 
-    public User(String firstName, String lastName, String email, String password, String gender, String mobile,
-                String address, String province, String district, String ward, String avatarBase64, Set<Role> roles, Set<Comment> comments) {
+    public User(String code, String firstName, String lastName, String email,
+                String password, String gender, String mobile, String address,
+                String province, String district, String ward, String avatarBase64,
+                Set<Role> roles, List<Cart> carts, List<RefreshToken> refreshTokens,
+                List<Order> orders, Set<Comment> comments) {
+        this.code = code;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
@@ -178,6 +228,9 @@ public class User extends BaseEntity {
         this.ward = ward;
         this.avatarBase64 = avatarBase64;
         this.roles = roles;
+        this.carts = carts;
+        this.refreshTokens = refreshTokens;
+        this.orders = orders;
         this.comments = comments;
     }
 }

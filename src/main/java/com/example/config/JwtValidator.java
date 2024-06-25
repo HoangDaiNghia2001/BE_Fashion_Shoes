@@ -43,23 +43,27 @@ public class JwtValidator extends OncePerRequestFilter {
 
         List<GrantedAuthority> roles = new ArrayList<>();
 
-        roles.addAll(getRoleFormTokenCookie(tokenCookieAdmin));
+        if(tokenCookieAdmin != null){
+            roles.addAll(getRoleFormTokenCookie(tokenCookieAdmin));
+        }
 
-        roles.addAll(getRoleFormTokenCookie(tokenCookieUser));
+        if(tokenCookieUser != null){
+            roles.addAll(getRoleFormTokenCookie(tokenCookieUser));
+        }
 
-        Authentication authentication = new UsernamePasswordAuthenticationToken(null,null,roles);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(null, null, roles);
+
+        System.out.println(authentication.getAuthorities());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        System.out.println(SecurityContextHolder.getContext().getAuthentication());
-
-        filterChain.doFilter(request,response);
+        filterChain.doFilter(request, response);
     }
 
-    public List<GrantedAuthority> getRoleFormTokenCookie(String token){
+    public List<GrantedAuthority> getRoleFormTokenCookie(String token) {
         List<GrantedAuthority> roles = new ArrayList<>();
-        if(token != null  && jwtProvider.validateJwtToken(token)){
-            try{
+        if (token != null && jwtProvider.validateJwtToken(token)) {
+            try {
                 Claims claims = jwtProvider.getClaimsFormToken(token);
 
                 String email = String.valueOf(claims.get("email"));
@@ -67,7 +71,7 @@ public class JwtValidator extends OncePerRequestFilter {
                 CustomUserDetails user = (CustomUserDetails) customUserService.loadUserByUsername(email);
 
                 roles.addAll(user.getAuthorities());
-            }catch (Exception e){
+            } catch (Exception e) {
                 throw new BadCredentialsException("Invalid token....");
             }
         }

@@ -12,5 +12,5 @@ public interface RoleService {
     Role updateRole(Long id, RoleRequest role) throws CustomException;
     Role findByName(String name) throws CustomException;
 
-    List <Role> getAllRole(int pageIndex, int pageSize);
+    List <Role> getAllRole();
 }

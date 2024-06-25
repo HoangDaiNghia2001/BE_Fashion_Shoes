@@ -8,12 +8,12 @@ import com.example.repository.BrandRepository;
 import com.example.repository.ChildCategoryRepository;
 import com.example.repository.ParentCategoryRepository;
 import com.example.repository.ProductRepository;
-import com.example.request.FilterProductsByAdminRequest;
 import com.example.request.ProductRequest;
 import com.example.response.ProductResponse;
+import com.example.response.QuantityByBrandResponse;
+import com.example.response.TopBestSellerResponse;
 import com.example.service.ProductService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.hibernate.query.spi.Limit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +42,18 @@ public class ProductServiceImpl implements ProductService {
     private ParentCategoryRepository parentCategoryRepository;
     @Autowired
     private ChildCategoryRepository childCategoryRepository;
+
+    private String generateUniqueCode(String brandName) {
+        String code;
+        Product existingProduct;
+        do {
+            String uuid = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 6);
+            code = brandName + "_" + uuid;
+            existingProduct = productRepository.findByCode(code);
+        } while (existingProduct != null);
+
+        return code.toUpperCase();
+    }
 
     @Override
     @Transactional
@@ -61,6 +74,7 @@ public class ProductServiceImpl implements ProductService {
 
                     Product product = new Product();
 
+                    product.setCode(generateUniqueCode(checkBrand.get().getName()));
                     product.setCreatedBy(admin.getEmail());
                     product.setTitle(productRequest.getTitle());
                     product.setDescription(productRequest.getDescription());
@@ -111,7 +125,6 @@ public class ProductServiceImpl implements ProductService {
                         User admin = userService.findUserProfileByJwt(token);
 
                         int quantity = 0;
-
                         oldProduct.get().setUpdateBy(admin.getEmail());
                         oldProduct.get().setTitle(productRequest.getTitle());
                         oldProduct.get().setDescription(productRequest.getDescription());
@@ -171,9 +184,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
-                                                 Integer discountedPercent, String createBy, String updateBy,Long id, Double price, int pageIndex, int pageSize) throws CustomException {
+                                                 Integer discountedPercent, String createBy, String updateBy,String code, Double price, int pageIndex, int pageSize) throws CustomException {
         List<Product> productsFilter = productRepository.filterProductsByAdmin(name,
-                brandId, parentCategoryId, childCategoryId,color, discountedPercent, createBy, updateBy,id,price);
+                brandId, parentCategoryId, childCategoryId,color, discountedPercent, createBy, updateBy,code,price);
 
         Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
         int startIndex = (int) pageable.getOffset();
@@ -259,6 +272,21 @@ public class ProductServiceImpl implements ProductService {
         productResponse.setTotalProduct((long) products.size());
         productResponse.setListProducts(products);
         return productResponse;
+    }
+
+    @Override
+    public List<QuantityByBrandResponse> countQuantityByBrand() {
+        return productRepository.countQuantityByBand();
+    }
+
+    @Override
+    public List<TopBestSellerResponse> topTenBestSeller() {
+        return productRepository.topTenBestSeller();
+    }
+
+    @Override
+    public long stock() {
+        return productRepository.stock();
     }
 
     @Override

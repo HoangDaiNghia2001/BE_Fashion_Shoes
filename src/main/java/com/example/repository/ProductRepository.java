@@ -1,6 +1,8 @@
 package com.example.repository;
 
 import com.example.Entity.Product;
+import com.example.response.QuantityByBrandResponse;
+import com.example.response.TopBestSellerResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -29,11 +31,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "and (?6 is null or p.discountedPercent between 0 and ?6)" +
             "and (?7 is null or p.createdBy = ?7)" +
             "and (?8 is null or p.updateBy = ?8)" +
-            "and (?9 is null or p.id = ?9)" +
+            "and (?9 is null or p.code = ?9)" +
             "and (?10 is null or p.price between 0 and ?10)" +
             "order by p.id desc ")
     List<Product> filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId,
-                                        String color, Integer discountedPercent, String createBy, String updateBy,Long id, Double price);
+                                        String color, Integer discountedPercent, String createBy, String updateBy, String code, Double price);
+
+
 
     @Query("select p.mainImageBase64 from Product p where p.id=?1")
     String getMainImageBase64(Long id);
@@ -54,28 +58,24 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query(value = "select p from Product p where p.brandProduct.id = ?1 and p.id <> ?2  order by p.id desc limit 12")
     List<Product> findTop12ByBrandProductId(Long brandId, Long productId);
 
-    // not test
+    @Query(value = "select new com.example.response.QuantityByBrandResponse(b.name, IFNULL(sum(p.quantity), 0)) " +
+            "from Brand b " +
+            "left join Product p " +
+            "on b.id = p.brandProduct.id " +
+            "group by b.id")
+    List<QuantityByBrandResponse> countQuantityByBand();
 
-    @Query("select p from Product p where p.brandProduct.name = ?1 order by p.id desc")
-    List<Product> getAllProductByBrandName(String brandName);
+    @Query("select new com.example.response.TopBestSellerResponse(p.id, p.name,p.quantity,sum(o.totalPrice), sum(o.quantity)) " +
+            "from OrderLine o " +
+            "left join Product p " +
+            "on o.product.id = p.id " +
+            "group by o.product.id " +
+            "order by sum(o.quantity) desc " +
+            "limit 10")
+    List<TopBestSellerResponse> topTenBestSeller();
 
-    @Query("select p from Product p where p.brandProduct.name = ?1 and p.parentCategoryOfProduct.name = ?2 order by p.id desc")
-    List<Product> getAllProductByParentCategory(String brand, String parentCategory);
+    @Query("select sum(p.quantity) from Product p")
+    long stock();
 
-    @Query("select p from Product p where p.brandProduct.name = ?1 and p.parentCategoryOfProduct.name = ?2 and p.childCategoryOfProduct.name = ?3 order by p.id desc")
-    List<Product> getAllProductByChildCategory(String brand, String parentCategory, String childCategory);
-
-    Product findTop1ByOrderByIdDesc();
-
-    @Query("select p from Product p where p.name like %?1% order by p.id desc")
-    List<Product> getAllProductBySearch(String search);
-
-    @Query("select count(*) from Product p where p.brandProduct.name = ?1")
-    int countProductByBrandName(String brandName);
-
-    @Query("select count(*) from Product p where p.brandProduct.name = ?1 and p.parentCategoryOfProduct = ?2")
-    int countProductByBrandNameAndParentCategory(String brandName, String parentCategory);
-
-    @Query("select count(*) from Product p where p.name like %?1%")
-    int countProductBySearch(String search);
+    Product findByCode(String code);
 }

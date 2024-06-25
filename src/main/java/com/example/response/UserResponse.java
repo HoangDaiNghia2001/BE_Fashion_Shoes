@@ -2,8 +2,10 @@ package com.example.response;
 
 import java.time.LocalDate;
 
-public class UserResponse{
+public class UserResponse {
     private Long id;
+    private String code;
+    private String roles;
     private LocalDate createAt;
     private String firstName;
     private String lastName;
@@ -19,10 +21,12 @@ public class UserResponse{
     public UserResponse() {
     }
 
-    public UserResponse(Long id, LocalDate createAt, String firstName, String lastName,
-                        String mobile, String gender, String email, String address, String province,
-                        String district, String ward, String imageBase64) {
+    public UserResponse(Long id, String code, String roles, LocalDate createAt,
+                        String firstName, String lastName, String mobile, String gender,
+                        String email, String address, String province, String district, String ward, String imageBase64) {
         this.id = id;
+        this.code = code;
+        this.roles = roles;
         this.createAt = createAt;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -34,6 +38,22 @@ public class UserResponse{
         this.district = district;
         this.ward = ward;
         this.imageBase64 = imageBase64;
+    }
+
+    public String getRoles() {
+        return roles;
+    }
+
+    public void setRoles(String roles) {
+        this.roles = roles;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public Long getId() {

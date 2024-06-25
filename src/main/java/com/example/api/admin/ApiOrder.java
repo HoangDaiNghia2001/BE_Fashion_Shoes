@@ -1,11 +1,10 @@
 package com.example.api.admin;
 
 import com.example.exception.CustomException;
-import com.example.response.ListOrderResponse;
-import com.example.response.Response;
-import com.example.response.ResponseData;
+import com.example.response.*;
 import com.example.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.support.Repositories;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -104,5 +103,84 @@ public class ApiOrder {
         response.setMessage("Delete some orders successfully !!!");
         response.setSuccess(true);
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/total")
+    public ResponseEntity<?> totalOrders() {
+        Long totalOrders = orderDetailService.totalOrders();
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get total Orders success !!!");
+        responseData.setResults(totalOrders);
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/revenue")
+    public ResponseEntity<?> revenue() {
+        Double revenue = orderDetailService.revenue();
+        ResponseData<Double> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get revenue success !!!");
+        responseData.setResults(revenue);
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/product/quantity/sold")
+    public ResponseEntity<?> quantitySoldByBrand() {
+        List<QuantityByBrandResponse> quantity = orderDetailService.quantityProductSoldByBrand();
+
+        ResponseData<List<QuantityByBrandResponse>> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Count quantity product sold by Brand success !!!");
+        responseData.setResults(quantity);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/statistic/year/{year}")
+    public ResponseEntity<?> statisticalByYear(@PathVariable("year") int year) {
+        List<OrderStatisticalByYearResponse> statistical = orderDetailService.statisticByYear(year);
+
+        ResponseData<List<OrderStatisticalByYearResponse>> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get statistic by year success !!!");
+        responseData.setResults(statistical);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/years")
+    public ResponseEntity<?> getAllYearInOrder() {
+        List<String> years = orderDetailService.getAllYearInOrder();
+        ResponseData<List<String>> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get all years success !!!");
+        responseData.setResults(years);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/orders/average/orders/value")
+    public ResponseEntity<?> averageOrdersValue() {
+        long average = orderDetailService.averageOrdersValue();
+
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Calculate average orders value success !!!");
+        responseData.setResults(average);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/products/sold")
+    public ResponseEntity<?> sold() {
+        long total = orderDetailService.sold();
+
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setSuccess(true);
+        responseData.setMessage("Get total products sold success !!!");
+        responseData.setResults(total);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 }

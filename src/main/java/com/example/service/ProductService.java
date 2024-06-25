@@ -5,6 +5,8 @@ import com.example.exception.CustomException;
 import com.example.request.FilterProductsByAdminRequest;
 import com.example.request.ProductRequest;
 import com.example.response.ProductResponse;
+import com.example.response.QuantityByBrandResponse;
+import com.example.response.TopBestSellerResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -20,7 +22,7 @@ public interface ProductService {
     void deleteSomeProducts (List<Long> listIdProducts) throws CustomException;
 
     ProductResponse filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
-                                          Integer discountedPercent, String createBy, String updateBy,Long id, Double price, int pageIndex, int pageSize) throws CustomException;
+                                          Integer discountedPercent, String createBy, String updateBy,String code, Double price, int pageIndex, int pageSize) throws CustomException;
 
     List<Product> getAllProduct();
 
@@ -42,4 +44,10 @@ public interface ProductService {
     Long getTheHighestPriceOfProduct();
 
     ProductResponse getSimilarProductsByBrandId(Long brandId,Long productId);
+
+    List<QuantityByBrandResponse> countQuantityByBrand();
+
+    List<TopBestSellerResponse> topTenBestSeller();
+
+    long stock();
 }

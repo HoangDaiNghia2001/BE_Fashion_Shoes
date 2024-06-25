@@ -10,6 +10,10 @@ import java.util.Set;
 @Entity
 @Table(name = "product")
 public class Product extends BaseEntity {
+
+    @Column(name = "code")
+    private String code;
+
     @Column(name = "name", columnDefinition = "TEXT")
     private String name;
 
@@ -41,17 +45,17 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "productOfComment", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<Comment> comments = new HashSet<>();
 
-//    @JsonIgnore
+    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "brand_id")
     private Brand brandProduct;
 
-//    @JsonIgnore
+    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "parentCategory_id")
     private ParentCategory parentCategoryOfProduct;
 
-//    @JsonIgnore
+    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "childCategory_id")
     private ChildCategory childCategoryOfProduct;
@@ -180,6 +184,14 @@ public class Product extends BaseEntity {
         return sizes;
     }
 
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public void setSizes(Set<Size> sizes) {
         this.sizes = sizes;
     }
@@ -187,8 +199,12 @@ public class Product extends BaseEntity {
     public Product() {
     }
 
-    public Product(String name, String description, String title, int quantity, double price, String mainImageBase64, int discountedPercent, double discountedPrice, String color, Set<Comment> comments, Brand brandProduct,
-                   ParentCategory parentCategoryOfProduct, ChildCategory childCategoryOfProduct, List<String> imageSecondaries, Set<Size> sizes) {
+    public Product(String code, String name, String description, String title,
+                   int quantity, double price, String mainImageBase64, int discountedPercent,
+                   double discountedPrice, String color, Set<Comment> comments, Brand brandProduct,
+                   ParentCategory parentCategoryOfProduct, ChildCategory childCategoryOfProduct,
+                   List<String> imageSecondaries, Set<Size> sizes) {
+        this.code = code;
         this.name = name;
         this.description = description;
         this.title = title;

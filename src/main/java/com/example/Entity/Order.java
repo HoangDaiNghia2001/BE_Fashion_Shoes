@@ -10,6 +10,9 @@ import java.util.Set;
 @Table(name = "orders")
 public class Order extends BaseEntity {
 
+    @Column(name = "code")
+    private String code;
+
     @Column(name = "full_name")
     private String fullName;
 
@@ -73,6 +76,8 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<OrderLine> orderLines;
 
+    @OneToOne(mappedBy = "order", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private VNPayInformation vnPayInformation;
     public String getFullName() {
         return fullName;
     }
@@ -232,15 +237,24 @@ public class Order extends BaseEntity {
         return updateAtUser;
     }
 
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public void setUpdateAtUser(LocalDateTime updateAtUser) {
         this.updateAtUser = updateAtUser;
     }
 
-    public Order(String fullName, String phoneNumber, String alternatePhoneNumber, String address,
-                 String province, String district, String ward, double totalPrice, String status,
-                 double transportFee, String updateByUser, LocalDateTime updateAtUser, LocalDateTime orderDate,
-                 LocalDateTime deliveryDate, LocalDateTime receivingDate, String pay, String note, String paymentMethod,
-                 User user, Set<OrderLine> orderLines) {
+    public Order(String code, String fullName, String phoneNumber, String alternatePhoneNumber,
+                 String address, String province, String district, String ward, double totalPrice,
+                 String status, double transportFee, String updateByUser, LocalDateTime updateAtUser,
+                 LocalDateTime orderDate, LocalDateTime deliveryDate, LocalDateTime receivingDate,
+                 String pay, String note, String paymentMethod, User user, Set<OrderLine> orderLines) {
+        this.code = code;
         this.fullName = fullName;
         this.phoneNumber = phoneNumber;
         this.alternatePhoneNumber = alternatePhoneNumber;
