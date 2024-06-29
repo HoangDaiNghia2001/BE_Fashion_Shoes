@@ -21,11 +21,10 @@ public class User extends BaseEntity {
     @Column(name = "last_name")
     private String lastName;
 
-    @Column(name = "email")
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(name = "password")
-//    @JsonIgnore
     private String password;
 
     @Column(name = "gender")
@@ -65,12 +64,10 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE)
     private List<Order> orders = new ArrayList<>();
 
-    @JsonIgnore
     @OneToMany(mappedBy = "userOfComment", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<Comment> comments = new HashSet<>();
 
     //getter-setter
-
     public List<Cart> getCarts() {
         return carts;
     }

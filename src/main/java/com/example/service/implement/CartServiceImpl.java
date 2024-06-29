@@ -208,11 +208,11 @@ public class CartServiceImpl implements CartService {
 
     @Transactional
     @Override
-    public String deleteMultiCartItem(List<Long> idProducts) throws CustomException {
+    public String deleteMultiCartItem(List<Long> idCarts) throws CustomException {
         String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
         User user = userService.findUserProfileByJwt(token);
 
-        idProducts.forEach(id -> {
+        idCarts.forEach(id -> {
             Optional<Cart> cart = cartRepository.findById(id);
             if (cart.isPresent()) {
                 if (cart.get().getUser().getId().equals(user.getId())) {

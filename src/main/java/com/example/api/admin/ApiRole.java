@@ -1,60 +1,71 @@
 package com.example.api.admin;
 
 import com.example.Entity.Role;
-import com.example.config.JwtProvider;
-import com.example.exception.CustomException;
 import com.example.request.RoleRequest;
+import com.example.response.ListRoleResponse;
 import com.example.response.Response;
-import com.example.response.RoleResponse;
+import com.example.response.ResponseData;
+import com.example.response.ResponseError;
 import com.example.service.implement.RoleServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController("roleOfAdmin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiRole {
     @Autowired
     private RoleServiceImpl roleService;
 
-    @Autowired
-    JwtProvider jwtProvider;
-
     @GetMapping("/roles")
-    public ResponseEntity<?> getAllRole(){
-        return new ResponseEntity<>(roleService.getAllRole(),HttpStatus.OK);
+    public ResponseEntity<?> getAllRole(@RequestParam("pageIndex") int pageIndex,
+                                        @RequestParam("pageSize") int pageSize) {
+        ListRoleResponse listRoleResponse = roleService.getAllRoles(pageIndex, pageSize);
+
+        ResponseData<ListRoleResponse> responseData = new ResponseData<>();
+        responseData.setMessage("Get list roles success !!!");
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setResults(listRoleResponse);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @PostMapping("/role")
-    public ResponseEntity<?> createRole(@RequestBody RoleRequest role) throws CustomException {
+    public ResponseEntity<?> createRole(@RequestBody RoleRequest role) throws ResponseError {
         Role newRole = roleService.createRole(role);
 
-        RoleResponse roleResponse = new RoleResponse();
-        roleResponse.setRole(newRole);
-        roleResponse.setMessage("Role added success !!!");
-        roleResponse.setSuccess(true);
-        return new ResponseEntity<>(roleResponse, HttpStatus.CREATED);
+        ResponseData<Role> responseData = new ResponseData<>();
+        responseData.setResults(newRole);
+        responseData.setMessage("Role added success !!!");
+        responseData.setStatus(HttpStatus.CREATED.value());
+
+        return new ResponseEntity<>(responseData, HttpStatus.CREATED);
     }
 
     @PutMapping("/role")
-    public ResponseEntity<?> updateRole(@RequestBody RoleRequest role,@RequestParam("id") Long id) throws CustomException {
-        Role oldRole = roleService.updateRole(id,role);
+    public ResponseEntity<?> updateRole(@RequestBody RoleRequest role, @RequestParam("id") Long id) throws ResponseError {
+        Role oldRole = roleService.updateRole(id, role);
 
-        RoleResponse roleResponse = new RoleResponse();
-        roleResponse.setRole(oldRole);
-        roleResponse.setMessage("Role updated success !!!");
-        roleResponse.setSuccess(true);
-        return new ResponseEntity<>(roleResponse,HttpStatus.OK);
+        ResponseData<Role> responseData = new ResponseData<>();
+        responseData.setResults(oldRole);
+        responseData.setMessage("Role updated success !!!");
+        responseData.setStatus(HttpStatus.OK.value());
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @DeleteMapping("/role")
-    public ResponseEntity<?> deleteRole(@RequestParam("id") Long id) throws CustomException {
-        String message = roleService.deleteRole(id);
-        Response response = new Response();
-        response.setMessage(message);
-        response.setSuccess(true);
-        return new ResponseEntity<>(response,HttpStatus.OK);
+    public ResponseEntity<?> deleteRole(@RequestParam("id") Long id) throws ResponseError {
+        Response response = roleService.deleteRole(id);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/roles/{ids}")
+    public ResponseEntity<?> deleteSomeRoles(@PathVariable List<Long> ids) {
+        Response response = roleService.deleteSomeRoles(ids);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }

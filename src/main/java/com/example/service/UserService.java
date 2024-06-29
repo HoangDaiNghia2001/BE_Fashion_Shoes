@@ -1,61 +1,54 @@
 package com.example.service;
 
-import com.example.Entity.User;
-import com.example.exception.CustomException;
 import com.example.request.OtpRequest;
 import com.example.request.PasswordRequest;
 import com.example.request.ResetPasswordRequest;
 import com.example.request.UserRequest;
-import com.example.response.ListUsersResponse;
-import com.example.response.Response;
-import com.example.response.TopFiveUsersBoughtTheMostResponse;
-import com.example.response.UserResponse;
+import com.example.response.*;
 import jakarta.mail.MessagingException;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
-    User findUserById(Long id) throws CustomException;
+    UserResponse findUserById(Long id) throws ResponseError;
 
-    User findUserProfileByJwt(String token) throws CustomException;
+    UserResponse findUserProfileByJwt(String token) throws ResponseError, ResponseError;
 
-    User findUserByEmail(String email) throws CustomException;
+    UserResponse findUserByEmail(String email) throws ResponseError;
 
-    void registerUser(UserRequest user) throws CustomException;
-
-    void registerAdmin(UserRequest admin) throws CustomException;
+    UserResponse registerUser(UserRequest user) throws ResponseError;
 
     ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize);
 
-    User updateInformation(UserRequest user, String token) throws CustomException, IOException;
+    UserResponse updateInformation(UserRequest user, String token) throws ResponseError;
 
-    User updateInformationUser(UserRequest userRequest) throws CustomException, IOException;
+    UserResponse updateInformationUser(UserRequest userRequest) throws ResponseError;
 
-    User updateInformationAdmin(UserRequest adminRequest) throws CustomException, IOException;
+    UserResponse updateInformationAdmin(UserRequest adminRequest) throws ResponseError, IOException;
 
-    Boolean confirmPassword(PasswordRequest passwordRequest) throws CustomException;
+    Response changePassword(PasswordRequest passwordRequest, String token) throws ResponseError;
 
-    Response changePassword(PasswordRequest passwordRequest, String token) throws CustomException;
+    Response changePasswordUser(PasswordRequest passwordRequest) throws ResponseError;
 
-    Response changePasswordUser(PasswordRequest passwordRequest) throws CustomException;
+    Response changePasswordAdmin(PasswordRequest passwordRequest) throws ResponseError;
 
-    Response changePasswordAdmin(PasswordRequest passwordRequest) throws CustomException;
+    String sendOTPCode(String email) throws ResponseError, MessagingException;
 
-    String sendOTPCode(String email) throws CustomException, MessagingException;
+    Response validateOtp(OtpRequest otpRequest) throws ResponseError;
 
-    Response validateOtp(OtpRequest otpRequest) throws CustomException;
-
-    Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws CustomException;
+    Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws ResponseError;
 
     Long totalUsers();
 
     List<TopFiveUsersBoughtTheMostResponse> getTopFiveUsersBoughtTheMost();
 
-    void createUserByAdmin(UserRequest userRequest) throws CustomException, MessagingException;
-    void updateUserByAdmin(long id, UserRequest userRequest) throws CustomException, MessagingException;
-    Response deleteUserByAdmin(long id) throws CustomException, MessagingException;
+    UserResponse createUserByAdmin(UserRequest userRequest) throws ResponseError, MessagingException;
+
+    UserResponse updateUserByAdmin(long id, UserRequest userRequest) throws ResponseError, MessagingException;
+
+    Response deleteUserByAdmin(long id) throws ResponseError, MessagingException;
+
     Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException;
 
 }

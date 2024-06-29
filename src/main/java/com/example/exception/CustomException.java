@@ -1,9 +1,16 @@
 package com.example.exception;
 
-public class CustomException extends Exception{
-    private boolean success;
-    public CustomException(String message){
-        super(message);
-        this.success = false;
+import com.example.response.ResponseError;
+
+public class CustomException extends Exception {
+
+    private ResponseError responseError;
+
+    public CustomException(ResponseError responseError) {
+        this.responseError = responseError;
+    }
+
+    public ResponseError getResponseError() {
+        return this.responseError;
     }
 }

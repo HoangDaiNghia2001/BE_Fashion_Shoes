@@ -8,10 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    @Query("select u from User u where u.email=:email")
-    User findByEmail(@Param("email") String email);
+    @Query("select u from User u where u.email=?1")
+    Optional<User> findByEmail(String email);
 
     @Query("select new com.example.response.TopFiveUsersBoughtTheMostResponse(o.user.id,o.user.email,o.user.mobile,o.user.lastName,o.user.firstName,o.user.gender,sum(o.totalPrice)) from Order o " +
             "group by o.user.id " +

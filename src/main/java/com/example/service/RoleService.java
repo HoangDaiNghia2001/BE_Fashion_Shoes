@@ -1,16 +1,23 @@
 package com.example.service;
 
 import com.example.Entity.Role;
-import com.example.exception.CustomException;
 import com.example.request.RoleRequest;
+import com.example.response.ListRoleResponse;
+import com.example.response.Response;
+import com.example.response.ResponseError;
 
 import java.util.List;
 
 public interface RoleService {
-    Role createRole(RoleRequest role) throws CustomException;
-    String deleteRole(Long id) throws CustomException;
-    Role updateRole(Long id, RoleRequest role) throws CustomException;
-    Role findByName(String name) throws CustomException;
+    Role createRole(RoleRequest role) throws ResponseError;
 
-    List <Role> getAllRole();
+    Response deleteRole(Long id) throws ResponseError;
+
+    Response deleteSomeRoles(List<Long> ids);
+
+    Role updateRole(Long id, RoleRequest role) throws ResponseError;
+
+    ListRoleResponse getAllRoles(int pageIndex,int pageSize);
+
+    Role findByName(String name) throws ResponseError;
 }

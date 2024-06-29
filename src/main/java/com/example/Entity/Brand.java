@@ -1,10 +1,7 @@
 package com.example.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -12,6 +9,7 @@ import java.util.Set;
 @Entity
 @Table(name = "brand")
 public class Brand extends BaseEntity {
+    @Column(name = "name", unique = true)
     private String name;
 
     @JsonIgnore

@@ -1,7 +1,5 @@
 package com.example.response;
 
-import com.example.Entity.User;
-
 import java.util.List;
 
 public class ListUsersResponse {

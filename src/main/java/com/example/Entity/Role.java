@@ -1,19 +1,22 @@
 package com.example.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "role")
-public class Role extends BaseEntity{
+public class Role extends BaseEntity {
 
-    @Column(name = "name")
+    @Column(name = "name", unique = true)
     private String name;
 
-    @Column(name = "description",columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @JsonIgnore

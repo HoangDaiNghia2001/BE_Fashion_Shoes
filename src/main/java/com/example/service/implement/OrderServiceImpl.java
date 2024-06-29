@@ -259,6 +259,7 @@ public class OrderServiceImpl implements OrderService {
             OrderLineResponse orderLineResponse = new OrderLineResponse();
 
             orderLineResponse.setProductId(product.get().getId());
+            orderLineResponse.setCodeProduct(product.get().getCode());
             orderLineResponse.setBrand(product.get().getBrandProduct().getName());
             orderLineResponse.setMainImageBase64(product.get().getMainImageBase64());
             orderLineResponse.setQuantity(orderLine.getQuantity());

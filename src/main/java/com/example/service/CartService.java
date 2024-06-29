@@ -16,7 +16,7 @@ public interface CartService {
 
     String deleteCartItem(Long id) throws CustomException;
 
-    String deleteMultiCartItem (List<Long> idProducts) throws CustomException;
+    String deleteMultiCartItem (List<Long> idCarts) throws CustomException;
 
     CartResponse getCartDetails() throws CustomException;
 

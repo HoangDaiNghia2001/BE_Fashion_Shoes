@@ -1,9 +1,18 @@
 package com.example.response;
 
-public class Response {
+public class ResponseError extends Exception{
     private String message;
-    private Boolean success = true;
+    private boolean success = false;
     private int status;
+
+    public ResponseError() {
+    }
+
+    public ResponseError(String message, int status) {
+        this.message = message;
+        this.success = false;
+        this.status = status;
+    }
 
     public String getMessage() {
         return message;
@@ -13,11 +22,11 @@ public class Response {
         this.message = message;
     }
 
-    public Boolean getSuccess() {
+    public boolean isSuccess() {
         return success;
     }
 
-    public void setSuccess(Boolean success) {
+    public void setSuccess(boolean success) {
         this.success = success;
     }
 
@@ -26,15 +35,6 @@ public class Response {
     }
 
     public void setStatus(int status) {
-        this.status = status;
-    }
-
-    public Response() {
-    }
-
-    public Response(String message, int status) {
-        this.message = message;
-        this.success = true;
         this.status = status;
     }
 }

@@ -6,9 +6,11 @@ import com.example.config.JwtProvider;
 import com.example.constant.CookieConstant;
 import com.example.constant.RoleConstant;
 import com.example.exception.CustomException;
+import com.example.mapper.UserMapper;
 import com.example.request.*;
 import com.example.response.Response;
 import com.example.response.ResponseData;
+import com.example.response.ResponseError;
 import com.example.response.UserResponse;
 import com.example.service.RefreshTokenService;
 import com.example.service.implement.UserServiceImpl;
@@ -34,7 +36,6 @@ import java.util.Optional;
 
 @RestController("login")
 @RequestMapping("/api")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiAccount {
     @Autowired
     private JwtProvider jwtProvider;
@@ -49,14 +50,19 @@ public class ApiAccount {
     @Autowired
     private EmailUtil emailUtil;
 
+    @Autowired
+    private UserMapper userMapper;
+
     // CALL SUCCESS
     @PostMapping("/account/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserRequest user) throws CustomException {
-        userService.registerUser(user);
+    public ResponseEntity<?> registerUser(@RequestBody UserRequest user) throws ResponseError {
+        UserResponse userResponse = userService.registerUser(user);
 
-        Response response = new Response();
+        ResponseData<UserResponse> response = new ResponseData<>();
         response.setSuccess(true);
         response.setMessage("Register success !!!");
+        response.setStatus(HttpStatus.CREATED.value());
+        response.setResults(userResponse);
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -73,30 +79,18 @@ public class ApiAccount {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        ResponseCookie token = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_USER,userDetails.getUser());
+        ResponseCookie token = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_USER, userDetails.getUser());
 
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUser().getId());
 
-        ResponseCookie refreshTokenCodeCookie = jwtProvider.generateRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_USER,refreshToken.getRefreshTokenCode());
+        ResponseCookie refreshTokenCodeCookie = jwtProvider.generateRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_USER, refreshToken.getRefreshTokenCode());
 
-        UserResponse userInformation = new UserResponse();
-        userInformation.setId(userDetails.getUser().getId());
-        userInformation.setCode(userDetails.getUser().getCode());
-        userInformation.setAddress(userDetails.getUser().getAddress());
-        userInformation.setDistrict(userDetails.getUser().getDistrict());
-        userInformation.setProvince(userDetails.getUser().getProvince());
-        userInformation.setWard(userDetails.getUser().getWard());
-        userInformation.setEmail(userDetails.getUser().getEmail());
-        userInformation.setFirstName(userDetails.getUser().getFirstName());
-        userInformation.setLastName(userDetails.getUser().getLastName());
-        userInformation.setGender(userDetails.getUser().getGender());
-        userInformation.setMobile(userDetails.getUser().getMobile());
-        userInformation.setCreateAt(userDetails.getUser().getCreatedAt());
-        userInformation.setImageBase64(userDetails.getUser().getAvatarBase64());
+        UserResponse userInformation = userMapper.userToUserResponse(userDetails.getUser());
 
         ResponseData<UserResponse> response = new ResponseData<>();
         response.setSuccess(true);
         response.setMessage("Login success !!!");
+        response.setStatus(HttpStatus.OK.value());
         response.setResults(userInformation);
 
         return ResponseEntity.ok()
@@ -122,49 +116,36 @@ public class ApiAccount {
             }
         }
 
-        if (check) {
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (!check) {
+            Response response = new Response();
+            response.setSuccess(false);
+            response.setMessage("You not permission to login !!!");
+            response.setStatus(HttpStatus.FORBIDDEN.value());
 
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-
-            ResponseCookie token = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_ADMIN,userDetails.getUser());
-
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUser().getId());
-
-            ResponseCookie refreshTokenCode = jwtProvider.generateRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_ADMIN,refreshToken.getRefreshTokenCode());
-
-            UserResponse userInformation = new UserResponse();
-
-            userInformation.setId(userDetails.getUser().getId());
-            userInformation.setCode(userDetails.getUser().getCode());
-            userInformation.setAddress(userDetails.getUser().getAddress());
-            userInformation.setDistrict(userDetails.getUser().getDistrict());
-            userInformation.setProvince(userDetails.getUser().getProvince());
-            userInformation.setWard(userDetails.getUser().getWard());
-            userInformation.setEmail(userDetails.getUser().getEmail());
-            userInformation.setFirstName(userDetails.getUser().getFirstName());
-            userInformation.setLastName(userDetails.getUser().getLastName());
-            userInformation.setGender(userDetails.getUser().getGender());
-            userInformation.setMobile(userDetails.getUser().getMobile());
-            userInformation.setCreateAt(userDetails.getUser().getCreatedAt());
-            userInformation.setImageBase64((userDetails.getUser().getAvatarBase64()));
-
-            ResponseData<UserResponse> response = new ResponseData<>();
-            response.setSuccess(true);
-            response.setMessage("Login success !!!");
-            response.setResults(userInformation);
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, token.toString())
-                    .header(HttpHeaders.SET_COOKIE, refreshTokenCode.toString())
-                    .body(response);
+            return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        Response response = new Response();
-        response.setSuccess(false);
-        response.setMessage("You not permission to login !!!");
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        ResponseCookie token = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_ADMIN, userDetails.getUser());
+
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUser().getId());
+
+        ResponseCookie refreshTokenCode = jwtProvider.generateRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_ADMIN, refreshToken.getRefreshTokenCode());
+
+        UserResponse adminResponse = userMapper.userToUserResponse(userDetails.getUser());
+
+        ResponseData<UserResponse> response = new ResponseData<>();
+        response.setSuccess(true);
+        response.setMessage("Login success !!!");
+        response.setResults(adminResponse);
+        response.setStatus(HttpStatus.OK.value());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, token.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCode.toString())
+                .body(response);
     }
 
     // CALL SUCCESS
@@ -176,22 +157,27 @@ public class ApiAccount {
 
             Optional<RefreshToken> refreshToken = refreshTokenService.findByRefreshTokenCode(refreshTokenCodeCookie);
 
-            if (refreshToken.isPresent()) {
-                RefreshToken refreshTokenCheck = refreshTokenService.verifyExpiration(refreshToken.get());
+            if (!refreshToken.isPresent()) {
+                ResponseError responseError = new ResponseError();
+                responseError.setMessage("Refresh token is not in database !!!");
+                responseError.setSuccess(false);
+                responseError.setStatus(HttpStatus.NOT_FOUND.value());
 
-                if (refreshTokenCheck != null) {
-                    ResponseCookie tokenCookie = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_USER,refreshTokenCheck.getUser());
+                throw new CustomException(responseError);
+            }
+            RefreshToken refreshTokenCheck = refreshTokenService.verifyExpiration(refreshToken.get());
 
-                    Response response = new Response();
-                    response.setMessage("Token is refreshed successfully !!!");
-                    response.setSuccess(true);
+            if (refreshTokenCheck != null) {
+                ResponseCookie tokenCookie = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_USER, refreshTokenCheck.getUser());
 
-                    return ResponseEntity.ok()
-                            .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
-                            .body(response);
-                }
-            } else {
-                throw new CustomException("Refresh token is not in database !!!");
+                Response response = new Response();
+                response.setMessage("Token is refreshed successfully !!!");
+                response.setSuccess(true);
+                response.setStatus(HttpStatus.OK.value());
+
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
+                        .body(response);
             }
         }
 
@@ -214,22 +200,26 @@ public class ApiAccount {
 
             Optional<RefreshToken> refreshToken = refreshTokenService.findByRefreshTokenCode(refreshTokenCodeCookie);
 
-            if (refreshToken.isPresent()) {
-                RefreshToken refreshTokenCheck = refreshTokenService.verifyExpiration(refreshToken.get());
+            if (!refreshToken.isPresent()) {
+                ResponseError responseError = new ResponseError();
+                responseError.setMessage("Refresh token is not in database !!!");
+                responseError.setSuccess(false);
+                responseError.setStatus(HttpStatus.NOT_FOUND.value());
 
-                if (refreshTokenCheck != null) {
-                    ResponseCookie tokenCookie = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_ADMIN,refreshTokenCheck.getUser());
+                throw new CustomException(responseError);
+            }
+            RefreshToken refreshTokenCheck = refreshTokenService.verifyExpiration(refreshToken.get());
 
-                    Response response = new Response();
-                    response.setMessage("Token is refreshed successfully !!!");
-                    response.setSuccess(true);
+            if (refreshTokenCheck != null) {
+                ResponseCookie tokenCookie = jwtProvider.generateTokenCookie(CookieConstant.JWT_COOKIE_ADMIN, refreshTokenCheck.getUser());
 
-                    return ResponseEntity.ok()
-                            .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
-                            .body(response);
-                }
-            } else {
-                throw new CustomException("Refresh token is not in database !!!");
+                Response response = new Response();
+                response.setMessage("Token is refreshed successfully !!!");
+                response.setSuccess(true);
+                response.setStatus(HttpStatus.OK.value());
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
+                        .body(response);
             }
         }
 
@@ -245,7 +235,7 @@ public class ApiAccount {
 
     // CALL SUCCESS
     @PostMapping("/forget/password")
-    public ResponseEntity<?> sendEmailToGetOTP(@RequestBody EmailRequest emailRequest) throws CustomException, MessagingException {
+    public ResponseEntity<?> sendEmailToGetOTP(@RequestBody EmailRequest emailRequest) throws MessagingException, ResponseError {
         String otp = userService.sendOTPCode(emailRequest.getEmail());
 
         ResponseCookie otpCookie = otpUtil.generateOtpCookie(otp);
@@ -257,6 +247,7 @@ public class ApiAccount {
         Response response = new Response();
         response.setMessage("OTP code has been sent to your email !!!");
         response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, otpCookie.toString())
@@ -266,13 +257,13 @@ public class ApiAccount {
 
     // CALL SUCCESS
     @PostMapping("/validate/otp")
-    public ResponseEntity<?> validateOTP(@RequestBody OtpRequest otpRequest) throws CustomException {
+    public ResponseEntity<?> validateOTP(@RequestBody OtpRequest otpRequest) throws ResponseError {
         return new ResponseEntity<>(userService.validateOtp(otpRequest), HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @PutMapping("/reset/password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest) throws CustomException {
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest) throws ResponseError {
         Response response = userService.resetPassword(resetPasswordRequest);
 
         ResponseCookie cleanOtpCookie = otpUtil.cleanOtpCookie();

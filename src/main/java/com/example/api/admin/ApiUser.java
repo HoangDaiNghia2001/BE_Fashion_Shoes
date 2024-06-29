@@ -2,10 +2,7 @@ package com.example.api.admin;
 
 import com.example.exception.CustomException;
 import com.example.request.UserRequest;
-import com.example.response.ListUsersResponse;
-import com.example.response.Response;
-import com.example.response.ResponseData;
-import com.example.response.TopFiveUsersBoughtTheMostResponse;
+import com.example.response.*;
 import com.example.service.implement.UserServiceImpl;
 import com.example.util.EmailUtil;
 import jakarta.mail.MessagingException;
@@ -18,13 +15,9 @@ import java.util.List;
 
 @RestController("admin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiUser {
     @Autowired
     private UserServiceImpl userService;
-
-    @Autowired
-    private EmailUtil emailUtil;
 
     @GetMapping("/users")
     public ResponseEntity<?> filterUser(@RequestParam(value = "code", required = false) String code,
@@ -40,6 +33,7 @@ public class ApiUser {
         responseData.setSuccess(true);
         responseData.setMessage("Get users success !!!");
         responseData.setResults(usersResponse);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
@@ -58,23 +52,27 @@ public class ApiUser {
 
     @PostMapping("/user")
     public ResponseEntity<?> createUserByAdmin(@RequestBody UserRequest userRequest) throws CustomException, MessagingException {
-        userService.createUserByAdmin(userRequest);
+        UserResponse userResponse = userService.createUserByAdmin(userRequest);
 
-        Response response = new Response();
+        ResponseData<UserResponse> response = new ResponseData<>();
         response.setSuccess(true);
         response.setMessage("Create user success !!!");
+        response.setStatus(HttpStatus.CREATED.value());
+        response.setResults(userResponse);
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping("/user")
     public ResponseEntity<?> updateUserByAdmin(@RequestParam("id") int id,
                                                @RequestBody UserRequest userRequest) throws CustomException, MessagingException {
-        userService.updateUserByAdmin(id, userRequest);
+        UserResponse userResponse = userService.updateUserByAdmin(id, userRequest);
 
-        Response response = new Response();
+        ResponseData<UserResponse> response = new ResponseData<>();
         response.setSuccess(true);
         response.setMessage("Update user success !!!");
+        response.setStatus(HttpStatus.OK.value());
+        response.setResults(userResponse);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -86,6 +84,7 @@ public class ApiUser {
         responseData.setSuccess(true);
         responseData.setMessage("Get total Users success !!!");
         responseData.setResults(totalUsers);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
@@ -97,6 +96,7 @@ public class ApiUser {
         responseData.setSuccess(true);
         responseData.setMessage("Get get top five users bought the most success !!!");
         responseData.setResults(users);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }

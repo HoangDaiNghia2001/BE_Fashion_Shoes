@@ -61,9 +61,9 @@ public class ApiCart {
     }
 
     // CALL SUCCESS
-    @DeleteMapping("/carts/{idProducts}")
-    public ResponseEntity<?> deleteMultiCartItems(@PathVariable List<Long> idProducts) throws CustomException {
-        String delete = cartService.deleteMultiCartItem(idProducts);
+    @DeleteMapping("/carts/{idCarts}")
+    public ResponseEntity<?> deleteMultiCartItems(@PathVariable List<Long> idCarts) throws CustomException {
+        String delete = cartService.deleteMultiCartItem(idCarts);
 
         Response response = new Response();
         response.setMessage(delete);

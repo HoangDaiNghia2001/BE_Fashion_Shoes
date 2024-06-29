@@ -2,8 +2,8 @@ package com.example.response;
 
 public class ResponseData <T>{
     private String message;
-    private Boolean success;
-
+    private Boolean success = true;
+    private int status;
     private T results;
 
     public String getMessage() {
@@ -30,12 +30,21 @@ public class ResponseData <T>{
         this.results = results;
     }
 
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
+    }
+
     public ResponseData() {
     }
 
-    public ResponseData(String message, Boolean success, T results) {
+    public ResponseData(String message, int status, T results) {
         this.message = message;
-        this.success = success;
+        this.success = true;
+        this.status = status;
         this.results = results;
     }
 }
