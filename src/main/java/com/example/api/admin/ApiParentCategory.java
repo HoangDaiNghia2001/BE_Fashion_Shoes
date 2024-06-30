@@ -5,6 +5,7 @@ import com.example.exception.CustomException;
 import com.example.request.ParentCategoryRequest;
 import com.example.response.Response;
 import com.example.response.ResponseData;
+import com.example.response.ResponseError;
 import com.example.service.implement.ParentCategoryServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,53 +16,41 @@ import java.util.List;
 
 @RestController("parentCategoryRoleAdmin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiParentCategory {
     @Autowired
     private ParentCategoryServiceImpl parentCategoryService;
 
     // CALL SUCCESS
     @PostMapping("/parentCategory")
-    public ResponseEntity<?> createParentCategory(@RequestBody ParentCategoryRequest parentCategoryRequest) throws CustomException {
+    public ResponseEntity<?> createParentCategory(@RequestBody ParentCategoryRequest parentCategoryRequest) throws ResponseError {
         ParentCategory parentCategory = parentCategoryService.createdParentCategory(parentCategoryRequest);
 
         ResponseData<ParentCategory> responseData = new ResponseData<>();
         responseData.setResults(parentCategory);
         responseData.setMessage("Parent category created success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.CREATED.value());
 
-        return new ResponseEntity<>(responseData, HttpStatus.OK);
+        return new ResponseEntity<>(responseData, HttpStatus.CREATED);
     }
 
     // CALL SUCCESS
     @PutMapping("parentCategory")
-    public ResponseEntity<?> updateParentCategory(@RequestBody ParentCategoryRequest parentCategoryRequest, @RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> updateParentCategory(@RequestParam("id") Long id,
+                                                  @RequestBody ParentCategoryRequest parentCategoryRequest) throws ResponseError {
         ParentCategory parentCategory = parentCategoryService.updateParentCategory(id, parentCategoryRequest);
 
         ResponseData<ParentCategory> responseData = new ResponseData<>();
         responseData.setResults(parentCategory);
         responseData.setMessage("Parent category updated success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/parentCategory")
-    public ResponseEntity<?> deleteParentCategory(@RequestParam("id") Long id) throws CustomException {
-        parentCategoryService.deleteParentCategory(id);
-
-        Response response = new Response();
-        response.setMessage("Delete success !!!");
-        response.setSuccess(true);
-
+    public ResponseEntity<?> deleteParentCategory(@RequestParam("id") Long id) throws ResponseError {
+        Response response = parentCategoryService.deleteParentCategory(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    @GetMapping("/parentCategory")
-    public ResponseEntity<?> getAllParentCategory(@RequestParam("pageIndex") int pageIndex, @RequestParam("pageSize") int pageSize) {
-        List<ParentCategory> parentCategories = parentCategoryService.getAllParentCategory(pageIndex, pageSize);
-
-        return new ResponseEntity<>(parentCategories, HttpStatus.OK);
     }
 }

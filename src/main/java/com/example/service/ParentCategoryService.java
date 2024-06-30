@@ -1,20 +1,20 @@
 package com.example.service;
 
 import com.example.Entity.ParentCategory;
-import com.example.exception.CustomException;
 import com.example.request.ParentCategoryRequest;
+import com.example.response.Response;
+import com.example.response.ResponseError;
 
 import java.util.List;
 import java.util.Set;
 
 public interface ParentCategoryService {
-    ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws CustomException;
+    ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws ResponseError;
 
-    ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws CustomException;
+    ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws ResponseError;
 
-    void deleteParentCategory(Long id) throws CustomException;
+    Response deleteParentCategory(Long id) throws ResponseError;
 
-    Set<ParentCategory> getAllParentCategoryByBrandId(Long brandId) throws CustomException;
+    Set<ParentCategory> getAllParentCategoriesByBrandId(Long brandId) throws ResponseError;
 
-    List<ParentCategory> getAllParentCategory(int pageIndex, int pageSize);
 }

@@ -132,7 +132,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward,
-                                               int pageIndex, int pageSize) {
+                                               int pageIndex, int pageSize) throws ResponseError {
         String emailPresent = methodUtils.getEmailFromTokenOfAdmin();
 
         List<User> users = userRepository.filterUserByAdmin(code, email, province, district, ward, emailPresent);

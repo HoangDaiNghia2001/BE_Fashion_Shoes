@@ -6,18 +6,20 @@ import com.example.Entity.User;
 import com.example.config.JwtProvider;
 import com.example.constant.CookieConstant;
 import com.example.exception.CustomException;
+import com.example.mapper.ParentCategoryMapper;
 import com.example.repository.BrandRepository;
 import com.example.repository.ParentCategoryRepository;
 import com.example.request.ParentCategoryRequest;
+import com.example.response.Response;
+import com.example.response.ResponseError;
 import com.example.service.ParentCategoryService;
+import com.example.util.MethodUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -26,94 +28,88 @@ public class ParentCategoryServiceImpl implements ParentCategoryService {
     @Autowired
     private BrandRepository brandRepository;
     @Autowired
-    private HttpServletRequest request;
-    @Autowired
-    private JwtProvider jwtProvider;
-    @Autowired
-    private UserServiceImpl userService;
-    @Autowired
     private ParentCategoryRepository parentCategoryRepository;
+    @Autowired
+    private MethodUtils methodUtils;
 
     @Override
     @Transactional
-    public ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws CustomException {
-        Optional<Brand> brand = brandRepository.findById(parentCategoryRequest.getBrandId());
+    public ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws ResponseError {
+        Brand brand = brandRepository.findById(parentCategoryRequest.getBrandId())
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found !!!",
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-        if (brand.isPresent()) {
-            parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
+        parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
 
-            ParentCategory check = parentCategoryRepository.findByNameAndBrandId(parentCategoryRequest.getName(), brand.get().getId());
+        Optional<ParentCategory> parentCategoryExist = parentCategoryRepository.findByNameAndBrandId(parentCategoryRequest.getName(), brand.getId());
 
-            if (check == null) {
-                String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-                User admin = userService.findUserProfileByJwt(token);
-
-                ParentCategory parentCategory = new ParentCategory();
-
-                parentCategory.setName(parentCategoryRequest.getName());
-                parentCategory.setCreatedBy(admin.getEmail());
-                parentCategory.setBrand(brand.get());
-
-                return parentCategoryRepository.save(parentCategory);
-            } else {
-                throw new CustomException("Parent category with name " + parentCategoryRequest.getName() + " of brand " + brand.get().getName() + " already exist !!!");
-            }
-        } else {
-            throw new CustomException("Brand not found !!!");
+        if (parentCategoryExist.isPresent()) {
+            throw new ResponseError("Parent category with name " + parentCategoryRequest.getName() + " of brand " + brand.getName() + " already exist !!!",
+                    HttpStatus.CONFLICT.value());
         }
-    }
+        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-    @Override
-    @Transactional
-    public ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws CustomException {
-        Optional<ParentCategory> oldParentCategory = parentCategoryRepository.findById(id);
+        ParentCategory parentCategory = new ParentCategory();
 
-        if (oldParentCategory.isPresent()) {
+        parentCategory.setName(parentCategoryRequest.getName());
+        parentCategory.setCreatedBy(emailAdmin);
+        parentCategory.setBrand(brand);
 
-            parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
-
-            ParentCategory check = parentCategoryRepository.findByNameAndBrandId(parentCategoryRequest.getName(), oldParentCategory.get().getBrand().getId());
-
-            if (check == null || check.getName().equals(oldParentCategory.get().getName())) {
-                String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-                User admin = userService.findUserProfileByJwt(token);
-
-                oldParentCategory.get().setUpdateBy(admin.getEmail());
-                oldParentCategory.get().setName(parentCategoryRequest.getName());
-
-                return parentCategoryRepository.save(oldParentCategory.get());
-            } else {
-                throw new CustomException("Parent category with name " + parentCategoryRequest.getName() + " of brand " + oldParentCategory.get().getBrand().getName() + " already exist !!!");
-            }
-        } else {
-            throw new CustomException("Parent category with id: " + id + " not found !!!");
-        }
+        return parentCategoryRepository.save(parentCategory);
     }
 
     @Override
     @Transactional
-    public void deleteParentCategory(Long id) throws CustomException {
-        Optional<ParentCategory> parentCategory = parentCategoryRepository.findById(id);
-        if (parentCategory.isPresent()) {
-            parentCategoryRepository.deleteById(id);
-        }else{
-            throw new CustomException("Not found parent category with id: " + id);
-        }
-    }
+    public ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws ResponseError {
+        ParentCategory oldParentCategory = parentCategoryRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Parent category with id: " + id + " not found !!!",
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-    @Override
-    public Set<ParentCategory> getAllParentCategoryByBrandId(Long brandId) throws CustomException {
-        Optional<Brand> brand = brandRepository.findById(brandId);
-        if (brand.isPresent()) {
-            return parentCategoryRepository.getAllParentCategoryByBrandId(brandId);
+        parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
+
+        Optional<ParentCategory> parentCategoryExist = parentCategoryRepository.findByNameAndBrandId(parentCategoryRequest.getName(), oldParentCategory.getBrand().getId());
+
+        if (!parentCategoryExist.isPresent() || parentCategoryExist.get().getName().equals(oldParentCategory.getName())) {
+            String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
+
+            oldParentCategory.setUpdateBy(emailAdmin);
+            oldParentCategory.setName(parentCategoryRequest.getName());
+
+            return parentCategoryRepository.save(oldParentCategory);
         } else {
-            throw new CustomException("Brand not found with name: " + brandId);
+            throw new ResponseError("Parent category with name " + parentCategoryRequest.getName() + " of brand " + oldParentCategory.getBrand().getName() + " already exist !!!",
+                    HttpStatus.CONFLICT.value());
         }
     }
 
     @Override
-    public List<ParentCategory> getAllParentCategory(int pageIndex, int pageSize) {
-        Pageable pageable = PageRequest.of(pageIndex-1, pageSize);
-        return parentCategoryRepository.findAll(pageable).getContent();
+    @Transactional
+    public Response deleteParentCategory(Long id) throws ResponseError {
+        ParentCategory parentCategory = parentCategoryRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Parent category not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        parentCategoryRepository.delete(parentCategory);
+
+        Response response = new Response();
+        response.setMessage("Delete parent category success !!!");
+        response.setStatus(HttpStatus.OK.value());
+
+        return response;
+    }
+
+    @Override
+    public Set<ParentCategory> getAllParentCategoriesByBrandId(Long brandId) throws ResponseError {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found with id: " + brandId,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return parentCategoryRepository.getAllParentCategoryByBrandId(brand.getId());
     }
 }

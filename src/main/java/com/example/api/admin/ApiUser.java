@@ -26,7 +26,7 @@ public class ApiUser {
                                         @RequestParam(value = "district", required = false) String district,
                                         @RequestParam(value = "ward", required = false) String ward,
                                         @RequestParam("pageIndex") int pageIndex,
-                                        @RequestParam("pageSize") int pageSize) {
+                                        @RequestParam("pageSize") int pageSize) throws ResponseError {
         ListUsersResponse usersResponse = userService.filterUserByAdmin(code, email, province, district, ward, pageIndex, pageSize);
 
         ResponseData<ListUsersResponse> responseData = new ResponseData<>();
@@ -39,7 +39,7 @@ public class ApiUser {
     }
 
     @DeleteMapping("/user")
-    public ResponseEntity<?> deleteUserByAdmin(@RequestParam("id") Long id) throws CustomException, MessagingException {
+    public ResponseEntity<?> deleteUserByAdmin(@RequestParam("id") Long id) throws CustomException, MessagingException, ResponseError {
         Response response = userService.deleteUserByAdmin(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -51,7 +51,7 @@ public class ApiUser {
     }
 
     @PostMapping("/user")
-    public ResponseEntity<?> createUserByAdmin(@RequestBody UserRequest userRequest) throws CustomException, MessagingException {
+    public ResponseEntity<?> createUserByAdmin(@RequestBody UserRequest userRequest) throws CustomException, MessagingException, ResponseError {
         UserResponse userResponse = userService.createUserByAdmin(userRequest);
 
         ResponseData<UserResponse> response = new ResponseData<>();
@@ -65,7 +65,7 @@ public class ApiUser {
 
     @PutMapping("/user")
     public ResponseEntity<?> updateUserByAdmin(@RequestParam("id") int id,
-                                               @RequestBody UserRequest userRequest) throws CustomException, MessagingException {
+                                               @RequestBody UserRequest userRequest) throws CustomException, MessagingException, ResponseError {
         UserResponse userResponse = userService.updateUserByAdmin(id, userRequest);
 
         ResponseData<UserResponse> response = new ResponseData<>();

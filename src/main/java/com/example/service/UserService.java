@@ -19,7 +19,7 @@ public interface UserService {
 
     UserResponse registerUser(UserRequest user) throws ResponseError;
 
-    ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize);
+    ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize) throws ResponseError;
 
     UserResponse updateInformation(UserRequest user, String token) throws ResponseError;
 

@@ -10,6 +10,7 @@ import java.util.Set;
 @Entity
 @Table(name = "parent_category")
 public class ParentCategory extends BaseEntity{
+    @Column(name = "name")
     private String name;
 
     @ManyToOne
@@ -32,7 +33,6 @@ public class ParentCategory extends BaseEntity{
         this.name = name;
     }
 
-    @JsonIgnore
     public Brand getBrand() {
         return brandOfParentCategory;
     }

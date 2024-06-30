@@ -1,18 +1,16 @@
 package com.example.service.implement;
 
 import com.example.Entity.Brand;
-import com.example.Entity.User;
-import com.example.config.JwtProvider;
-import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
+import com.example.mapper.BrandMapper;
+import com.example.mapper.ChildCategoryMapper;
+import com.example.mapper.ParentCategoryMapper;
 import com.example.repository.BrandRepository;
 import com.example.request.BrandRequest;
-import com.example.response.BrandResponse;
-import com.example.response.ChildCategoryResponse;
-import com.example.response.ParentCategoryResponse;
+import com.example.response.*;
 import com.example.service.BrandService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.example.util.MethodUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,38 +23,34 @@ public class BrandServiceImpl implements BrandService {
     @Autowired
     private BrandRepository brandRepository;
     @Autowired
-    private HttpServletRequest request;
+    private MethodUtils methodUtils;
     @Autowired
-    private JwtProvider jwtProvider;
+    private BrandMapper brandMapper;
     @Autowired
-    private UserServiceImpl userService;
+    private ParentCategoryMapper parentCategoryMapper;
+    @Autowired
+    private ChildCategoryMapper childCategoryMapper;
 
     @Override
-    public List<BrandResponse> getAllBrandDetailByAdmin() {
+    public List<BrandResponse> getAllBrandsDetailByAdmin() {
         List<BrandResponse> brandResponseList = new ArrayList<>();
 
         List<Brand> brandList = brandRepository.findAll();
         brandList.forEach(brand -> {
-            BrandResponse brandResponse = new BrandResponse();
+            BrandResponse brandResponse = brandMapper.brandToBrandResponse(brand);
 
-            brandResponse.setId(brand.getId());
-            brandResponse.setName(brand.getName());
             // add list parent category to brandResponse
             List<ParentCategoryResponse> parentCategoryResponseList = new ArrayList<>();
 
             brand.getParentCategories().forEach(parentCategory -> {
-                ParentCategoryResponse parentCategoryResponse = new ParentCategoryResponse();
-                parentCategoryResponse.setId(parentCategory.getId());
+                ParentCategoryResponse parentCategoryResponse = parentCategoryMapper.parentCategoryToParentCategoryResponse(parentCategory);
                 parentCategoryResponse.setBrandId(brand.getId());
-                parentCategoryResponse.setName(parentCategory.getName());
-                // add list child category to parent categoryResponse
+                // add list child category to parent category Response
                 List<ChildCategoryResponse> childCategoryResponseList = new ArrayList<>();
 
                 parentCategory.getChildCategories().forEach(childCategory -> {
-                    ChildCategoryResponse childCategoryResponse = new ChildCategoryResponse();
-                    childCategoryResponse.setId(childCategory.getId());
+                    ChildCategoryResponse childCategoryResponse = childCategoryMapper.childCategoryToChildCategoryResponse(childCategory);
                     childCategoryResponse.setParentCategoryId(parentCategory.getId());
-                    childCategoryResponse.setName(childCategory.getName());
                     childCategoryResponseList.add(childCategoryResponse);
                 });
                 parentCategoryResponse.setChildCategoryResponseList(childCategoryResponseList);
@@ -70,70 +64,72 @@ public class BrandServiceImpl implements BrandService {
     }
 
     @Override
-    public List<Brand> getAllBrand() {
+    public List<Brand> getAllBrands() {
         return brandRepository.findAll();
     }
 
     @Override
     @Transactional
-    public Brand createBrand(BrandRequest brandRequest) throws CustomException {
+    public Brand createBrand(BrandRequest brandRequest) throws ResponseError {
         brandRequest.setName(brandRequest.getName().toUpperCase());
 
-        Brand check = brandRepository.findByName(brandRequest.getName());
+        Optional<Brand> brandExist = brandRepository.findByName(brandRequest.getName());
 
-        if (check == null) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-            User admin = userService.findUserProfileByJwt(token);
+        if (brandExist.isPresent()) {
+            throw new ResponseError(
+                    "Brand is already exist with name: " + brandExist.get().getName(),
+                    HttpStatus.CONFLICT.value());
+        }
+        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-            Brand brand = new Brand();
-            brand.setName(brandRequest.getName());
-            brand.setCreatedBy(admin.getEmail());
+        Brand brand = new Brand();
+        brand.setName(brandRequest.getName());
+        brand.setCreatedBy(emailAdmin);
 
-            return brandRepository.save(brand);
+        return brandRepository.save(brand);
+
+    }
+
+    @Override
+    @Transactional
+    public Brand updateBrand(Long id, BrandRequest brandRequest) throws ResponseError {
+        Brand oldBrand = brandRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+
+        brandRequest.setName(brandRequest.getName().toUpperCase());
+
+        Optional<Brand> brandExist = brandRepository.findByName(brandRequest.getName());
+
+        if (!brandExist.isPresent() || brandExist.get().getName().equals(oldBrand.getName())) {
+            String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
+
+            oldBrand.setUpdateBy(emailAdmin);
+            oldBrand.setName(brandRequest.getName());
+
+            return brandRepository.save(oldBrand);
         } else {
-            throw new CustomException("Brand is already exist with name: " + brandRequest.getName());
+            throw new ResponseError("The brand with name " + brandExist.get().getName() + " is already exist !!!",
+                    HttpStatus.CONFLICT.value());
         }
     }
 
     @Override
     @Transactional
-    public Brand updateBrand(Long id, BrandRequest brandRequest) throws CustomException {
-        Optional<Brand> oldBrand = brandRepository.findById(id);
+    public Response deleteBrand(Long id) throws ResponseError {
+        Brand brand = brandRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        brandRepository.delete(brand);
+        Response response = new Response();
+        response.setMessage("Delete brand success !!!");
+        response.setStatus(HttpStatus.OK.value());
 
-        brandRequest.setName(brandRequest.getName().toUpperCase());
-        Brand check = brandRepository.findByName(brandRequest.getName());
-
-        if (oldBrand.isPresent()) {
-            if (check == null || check.getName().equals(oldBrand.get().getName())) {
-                String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-                User admin = userService.findUserProfileByJwt(token);
-
-                oldBrand.get().setUpdateBy(admin.getEmail());
-                oldBrand.get().setName(brandRequest.getName());
-
-                return brandRepository.save(oldBrand.get());
-            } else {
-                throw new CustomException("The brand with name " + check.getName() + " is already exist !!!");
-            }
-        } else {
-            throw new CustomException("Brand not found with id: " + id);
-        }
+        return response;
     }
 
-    @Override
-    @Transactional
-    public void deleteBrand(Long id) throws CustomException {
-        Optional<Brand> brand = brandRepository.findById(id);
-        if (brand.isPresent()) {
-            brandRepository.delete(brand.get());
-        } else {
-            throw new CustomException("Brand not found with id: " + id);
-        }
-    }
-
-    @Override
-    public Brand getBrandInformation(Long id) throws CustomException {
-        Optional<Brand> brand = brandRepository.findById(id);
-        return brand.orElseThrow(() -> new CustomException("Brand not found with id: " + id));
-    }
 }

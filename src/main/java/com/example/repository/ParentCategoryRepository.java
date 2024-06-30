@@ -9,7 +9,7 @@ import java.util.Set;
 
 public interface ParentCategoryRepository extends JpaRepository<ParentCategory,Long> {
     @Query("select p from ParentCategory p where p.name = ?1 and p.brandOfParentCategory.id = ?2")
-    ParentCategory findByNameAndBrandId(String name,Long brandId);
+    Optional<ParentCategory> findByNameAndBrandId(String name,Long brandId);
 
     @Query("select p from ParentCategory p where p.brandOfParentCategory.id = ?1")
     Set<ParentCategory> getAllParentCategoryByBrandId(Long brandId);
