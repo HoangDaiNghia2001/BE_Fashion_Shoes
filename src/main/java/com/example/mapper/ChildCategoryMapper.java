@@ -8,7 +8,5 @@ import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface ChildCategoryMapper {
-    void childCategoryRequestToChildCategory(ChildCategoryRequest childCategoryRequest, @MappingTarget ChildCategory childCategory);
-
     ChildCategoryResponse childCategoryToChildCategoryResponse(ChildCategory childCategory);
 }

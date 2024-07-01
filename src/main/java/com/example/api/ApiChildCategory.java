@@ -2,6 +2,8 @@ package com.example.api;
 
 import com.example.Entity.ChildCategory;
 import com.example.exception.CustomException;
+import com.example.response.ResponseData;
+import com.example.response.ResponseError;
 import com.example.service.implement.ChildCategoryServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,16 +14,20 @@ import java.util.List;
 
 @RestController("childCategory")
 @RequestMapping("/api")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiChildCategory {
     @Autowired
     private ChildCategoryServiceImpl childCategoryService;
 
     // CALL SUCCESS
     @GetMapping("/childCategories")
-    public ResponseEntity<?> getChildCategoryByParentCategoryId(@RequestParam("parentCategoryId") Long parentCategoryId) throws CustomException {
-        List<ChildCategory> childCategories = childCategoryService.getAllChildCategoryByParentCategoryId(parentCategoryId);
+    public ResponseEntity<?> getChildCategoryByParentCategoryId(@RequestParam("parentCategoryId") Long parentCategoryId) throws ResponseError {
+        List<ChildCategory> childCategories = childCategoryService.getAllChildCategoriesByParentCategoryId(parentCategoryId);
 
-        return new ResponseEntity<>(childCategories, HttpStatus.OK);
+        ResponseData<List<ChildCategory>> responseData = new ResponseData<>();
+        responseData.setMessage("Get all child categories by parent category id success !!!");
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setResults(childCategories);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 }

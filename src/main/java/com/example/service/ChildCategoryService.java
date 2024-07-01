@@ -3,14 +3,15 @@ package com.example.service;
 import com.example.Entity.ChildCategory;
 import com.example.exception.CustomException;
 import com.example.request.ChildCategoryRequest;
+import com.example.response.Response;
+import com.example.response.ResponseError;
 
 import java.util.List;
 
 public interface ChildCategoryService {
-    ChildCategory createChildCategory(ChildCategoryRequest childCategoryRequest) throws CustomException;
-    ChildCategory updateChildCategory(Long id, ChildCategoryRequest childCategoryRequest) throws CustomException;
-    void deleteChildCategory(Long id) throws CustomException;
-    List<ChildCategory> getAllChildCategory(int pageIndex, int pageSize);
+    ChildCategory createChildCategory(ChildCategoryRequest childCategoryRequest) throws ResponseError;
+    ChildCategory updateChildCategory(Long id, ChildCategoryRequest childCategoryRequest) throws ResponseError;
+    Response deleteChildCategory(Long id) throws ResponseError;
 
-    List<ChildCategory> getAllChildCategoryByParentCategoryId(Long parentCategoryId) throws CustomException;
+    List<ChildCategory> getAllChildCategoriesByParentCategoryId(Long parentCategoryId) throws ResponseError;
 }

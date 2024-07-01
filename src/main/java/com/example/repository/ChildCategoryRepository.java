@@ -9,10 +9,10 @@ import java.util.Optional;
 
 public interface ChildCategoryRepository extends JpaRepository<ChildCategory,Long> {
     @Query("select c from ChildCategory c where c.name=?1 and c.parentCategoryOfChildCategory.id = ?2")
-    ChildCategory findByNameAndParentCategoryId(String name,Long parentCategoryId);
+    Optional<ChildCategory> findByNameAndParentCategoryId(String name,Long parentCategoryId);
 
     @Query("select c from ChildCategory c where c.parentCategoryOfChildCategory.id =?1")
-    List<ChildCategory> getAllChildCategoryByParentCategoryId(Long parentCategoryId);
+    List<ChildCategory> getAllChildCategoriesByParentCategoryId(Long parentCategoryId);
 
     @Query("select c from ChildCategory c where c.id=?1 and c.parentCategoryOfChildCategory.id = ?2")
     Optional<ChildCategory> findByIdAndParentCategoryId(Long id, Long parentCategoryId);
