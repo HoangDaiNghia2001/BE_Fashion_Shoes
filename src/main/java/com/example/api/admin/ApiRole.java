@@ -2,7 +2,7 @@ package com.example.api.admin;
 
 import com.example.Entity.Role;
 import com.example.request.RoleRequest;
-import com.example.response.ListRoleResponse;
+import com.example.response.ListRolesResponse;
 import com.example.response.Response;
 import com.example.response.ResponseData;
 import com.example.response.ResponseError;
@@ -23,12 +23,12 @@ public class ApiRole {
     @GetMapping("/roles")
     public ResponseEntity<?> getAllRole(@RequestParam("pageIndex") int pageIndex,
                                         @RequestParam("pageSize") int pageSize) {
-        ListRoleResponse listRoleResponse = roleService.getAllRoles(pageIndex, pageSize);
+        ListRolesResponse listRolesResponse = roleService.getAllRoles(pageIndex, pageSize);
 
-        ResponseData<ListRoleResponse> responseData = new ResponseData<>();
+        ResponseData<ListRolesResponse> responseData = new ResponseData<>();
         responseData.setMessage("Get list roles success !!!");
         responseData.setStatus(HttpStatus.OK.value());
-        responseData.setResults(listRoleResponse);
+        responseData.setResults(listRolesResponse);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }

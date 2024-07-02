@@ -11,7 +11,7 @@ import java.util.Set;
 @Table(name = "product")
 public class Product extends BaseEntity {
 
-    @Column(name = "code")
+    @Column(name = "code", unique = true)
     private String code;
 
     @Column(name = "name", columnDefinition = "TEXT")
@@ -45,17 +45,14 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "productOfComment", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<Comment> comments = new HashSet<>();
 
-    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "brand_id")
     private Brand brandProduct;
 
-    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "parentCategory_id")
     private ParentCategory parentCategoryOfProduct;
 
-    //    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "childCategory_id")
     private ChildCategory childCategoryOfProduct;

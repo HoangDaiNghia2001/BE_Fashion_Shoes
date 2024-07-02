@@ -4,7 +4,7 @@ import com.example.Entity.Order;
 import com.example.exception.CustomException;
 import com.example.request.OrderRequest;
 import com.example.request.OrderUpdateRequest;
-import com.example.response.ListOrderResponse;
+import com.example.response.ListOrdersResponse;
 import com.example.response.OrderResponse;
 import com.example.response.OrderStatisticalByYearResponse;
 import com.example.response.QuantityByBrandResponse;
@@ -25,12 +25,12 @@ public interface OrderService {
                                               LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
                                               LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd) throws CustomException;
 
-    ListOrderResponse getAllOrderDetailByAdmin(String orderBy, String phoneNumber, String orderStatus, String paymentMethod,
-                                               String province, String district, String ward,
-                                               LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
-                                               LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
-                                               LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
-                                               int pageIndex, int pageSize);
+    ListOrdersResponse getAllOrderDetailByAdmin(String orderBy, String phoneNumber, String orderStatus, String paymentMethod,
+                                                String province, String district, String ward,
+                                                LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
+                                                LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
+                                                LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
+                                                int pageIndex, int pageSize);
 
     OrderResponse getOrderDetail(Long orderId) throws CustomException;
 

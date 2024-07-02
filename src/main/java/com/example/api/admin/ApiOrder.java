@@ -4,7 +4,6 @@ import com.example.exception.CustomException;
 import com.example.response.*;
 import com.example.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.repository.support.Repositories;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,11 +36,11 @@ public class ApiOrder {
                                               @RequestParam(value = "receivingDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateEnd,
                                               @RequestParam("pageIndex") int pageIndex,
                                               @RequestParam("pageSize") int pageSize) {
-        ListOrderResponse orderResponseList = orderDetailService.getAllOrderDetailByAdmin(orderBy, phoneNumber, orderStatus, paymentMethod, province,
+        ListOrdersResponse orderResponseList = orderDetailService.getAllOrderDetailByAdmin(orderBy, phoneNumber, orderStatus, paymentMethod, province,
                 district, ward, orderDateStart, orderDateEnd, deliveryDateStart,
                 deliveryDateEnd, receivingDateStart, receivingDateEnd, pageIndex, pageSize);
 
-        ResponseData<ListOrderResponse> responseData = new ResponseData<>();
+        ResponseData<ListOrdersResponse> responseData = new ResponseData<>();
         responseData.setSuccess(true);
         responseData.setResults(orderResponseList);
         responseData.setMessage("Filter orders success !!!");

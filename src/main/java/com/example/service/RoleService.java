@@ -2,7 +2,7 @@ package com.example.service;
 
 import com.example.Entity.Role;
 import com.example.request.RoleRequest;
-import com.example.response.ListRoleResponse;
+import com.example.response.ListRolesResponse;
 import com.example.response.Response;
 import com.example.response.ResponseError;
 
@@ -17,7 +17,7 @@ public interface RoleService {
 
     Role updateRole(Long id, RoleRequest role) throws ResponseError;
 
-    ListRoleResponse getAllRoles(int pageIndex,int pageSize);
+    ListRolesResponse getAllRoles(int pageIndex, int pageSize);
 
     Role findByName(String name) throws ResponseError;
 }

@@ -24,7 +24,10 @@ public class ProductRequest {
     public ProductRequest() {
     }
 
-    public ProductRequest(String name, String title, String description, Long brandId, Long parentCategoryId, Long childCategoryId, int discountedPercent, double price, String color, Set<Size> sizes, String mainImageBase64, List<String> imageSecondaries) {
+    public ProductRequest(String name, String title, String description, Long brandId,
+                          Long parentCategoryId, Long childCategoryId, int discountedPercent,
+                          double price, String color, Set<Size> sizes, String mainImageBase64,
+                          List<String> imageSecondaries) {
         this.name = name;
         this.title = title;
         this.description = description;

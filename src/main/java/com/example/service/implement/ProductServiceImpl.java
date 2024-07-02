@@ -1,26 +1,23 @@
 package com.example.service.implement;
 
 import com.example.Entity.*;
-import com.example.config.JwtProvider;
-import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
+import com.example.mapper.ProductMapper;
 import com.example.repository.BrandRepository;
 import com.example.repository.ChildCategoryRepository;
 import com.example.repository.ParentCategoryRepository;
 import com.example.repository.ProductRepository;
 import com.example.request.ProductRequest;
-import com.example.response.ProductResponse;
-import com.example.response.QuantityByBrandResponse;
-import com.example.response.TopBestSellerResponse;
+import com.example.response.*;
 import com.example.service.ProductService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.example.util.MethodUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,17 +28,15 @@ public class ProductServiceImpl implements ProductService {
     @Autowired
     private ProductRepository productRepository;
     @Autowired
-    private JwtProvider jwtProvider;
-    @Autowired
-    private HttpServletRequest request;
-    @Autowired
-    private UserServiceImpl userService;
-    @Autowired
     private BrandRepository brandRepository;
     @Autowired
     private ParentCategoryRepository parentCategoryRepository;
     @Autowired
     private ChildCategoryRepository childCategoryRepository;
+    @Autowired
+    private ProductMapper productMapper;
+    @Autowired
+    private MethodUtils methodUtils;
 
     private String generateUniqueCode(String brandName) {
         String code;
@@ -57,146 +52,167 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public Product createProduct(ProductRequest productRequest) throws CustomException, IOException {
-        Optional<Brand> checkBrand = brandRepository.findById(productRequest.getBrandId());
+    public Product createProduct(ProductRequest productRequest) throws ResponseError {
+        Brand brand = brandRepository.findById(productRequest.getBrandId())
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found with id: " + productRequest.getBrandId(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-        if (checkBrand.isPresent()) {
-            Optional<ParentCategory> checkParentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), productRequest.getBrandId());
+        ParentCategory parentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), brand.getId())
+                .orElseThrow(() -> new ResponseError(
+                        new StringBuilder("Parent category with id ")
+                                .append(productRequest.getParentCategoryId())
+                                .append(" and have brand id ")
+                                .append(brand.getId())
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-            if (checkParentCategory.isPresent()) {
-                Optional<ChildCategory> checkChildCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), productRequest.getParentCategoryId());
+        ChildCategory childCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId())
+                .orElseThrow(() -> new ResponseError(
+                        new StringBuilder("Child category with id ")
+                                .append(productRequest.getChildCategoryId())
+                                .append(" and have parent category id ")
+                                .append(parentCategory.getId())
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-                if (checkChildCategory.isPresent()) {
-                    String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-                    User admin = userService.findUserProfileByJwt(token);
+        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-                    int quantity = 0;
+        int quantity = productRequest.getSizes().stream()
+                .mapToInt(Size::getQuantity)
+                .sum();
+        long discountedPrice = Math.round(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice());
 
-                    Product product = new Product();
+        Product product = new Product();
+        productMapper.productRequestToProduct(productRequest, product);
 
-                    product.setCode(generateUniqueCode(checkBrand.get().getName()));
-                    product.setCreatedBy(admin.getEmail());
-                    product.setTitle(productRequest.getTitle());
-                    product.setDescription(productRequest.getDescription());
-                    product.setDiscountedPercent(productRequest.getDiscountedPercent());
-                    product.setDiscountedPrice(Math.round(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice()));
-                    product.setName(productRequest.getName());
-                    product.setMainImageBase64(productRequest.getMainImageBase64());
-                    product.setPrice(productRequest.getPrice());
-                    for (Size s : productRequest.getSizes()) {
-                        quantity += s.getQuantity();
-                    }
-                    product.setQuantity(quantity);
-                    product.setBrandProduct(checkBrand.get());
-                    product.setParentCategoryOfProduct(checkParentCategory.get());
-                    product.setChildCategoryOfProduct(checkChildCategory.get());
-                    product.setSizes(productRequest.getSizes());
-                    product.setColor(productRequest.getColor().toUpperCase());
-                    product.setImageSecondaries(productRequest.getImageSecondaries());
+        product.setCode(generateUniqueCode(brand.getName()));
+        product.setCreatedBy(emailAdmin);
+        product.setDiscountedPrice(discountedPrice);
+        product.setQuantity(quantity);
+        product.setBrandProduct(brand);
+        product.setParentCategoryOfProduct(parentCategory);
+        product.setChildCategoryOfProduct(childCategory);
+        product.setColor(productRequest.getColor().toUpperCase());
 
-                    return productRepository.save(product);
-                } else {
-                    throw new CustomException("Child category with id " + productRequest.getChildCategoryId() + " not exist !!!");
-                }
-            } else {
-                throw new CustomException("Parent category with id " + productRequest.getParentCategoryId() + " not exist !!!");
-            }
-        } else {
-            throw new CustomException("Brand not found with id: " + productRequest.getBrandId());
-        }
+        return productRepository.save(product);
     }
 
     @Override
     @Transactional
-    public Product updateProduct(Long id, ProductRequest productRequest) throws CustomException, IOException {
-        Optional<Product> oldProduct = productRepository.findById(id);
+    public Product updateProduct(Long id, ProductRequest productRequest) throws ResponseError {
+        Product oldProduct = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Product not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-        if (oldProduct.isPresent()) {
-            Optional<Brand> checkBrand = brandRepository.findById(productRequest.getBrandId());
+        Brand brand = brandRepository.findById(productRequest.getBrandId())
+                .orElseThrow(() -> new ResponseError(
+                        "Brand not found with id: " + productRequest.getBrandId(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-            if (checkBrand.isPresent()) {
-                Optional<ParentCategory> checkParentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), productRequest.getBrandId());
+        ParentCategory parentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), brand.getId())
+                .orElseThrow(() -> new ResponseError(
+                        new StringBuilder("Parent category with id ")
+                                .append(productRequest.getParentCategoryId())
+                                .append(" and have brand id ")
+                                .append(brand.getId())
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-                if (checkParentCategory.isPresent()) {
-                    Optional<ChildCategory> checkChildCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), productRequest.getParentCategoryId());
+        ChildCategory childCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId())
+                .orElseThrow(() -> new ResponseError(
+                        new StringBuilder("Child category with id ")
+                                .append(productRequest.getChildCategoryId())
+                                .append(" and have parent category id ")
+                                .append(parentCategory.getId())
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
 
-                    if (checkChildCategory.isPresent()) {
-                        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-                        User admin = userService.findUserProfileByJwt(token);
+        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-                        int quantity = 0;
-                        oldProduct.get().setUpdateBy(admin.getEmail());
-                        oldProduct.get().setTitle(productRequest.getTitle());
-                        oldProduct.get().setDescription(productRequest.getDescription());
-                        oldProduct.get().setDiscountedPercent(productRequest.getDiscountedPercent());
-                        oldProduct.get().setDiscountedPrice(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice());
-                        oldProduct.get().setMainImageBase64(productRequest.getMainImageBase64());
-                        oldProduct.get().setName(productRequest.getName());
-                        oldProduct.get().setPrice(productRequest.getPrice());
-                        for (Size s : productRequest.getSizes()) {
-                            quantity += s.getQuantity();
-                        }
-                        oldProduct.get().setQuantity(quantity);
-                        oldProduct.get().setBrandProduct(checkBrand.get());
-                        oldProduct.get().setParentCategoryOfProduct(checkParentCategory.get());
-                        oldProduct.get().setChildCategoryOfProduct(checkChildCategory.get());
-                        oldProduct.get().setSizes(productRequest.getSizes());
-                        oldProduct.get().setColor(productRequest.getColor().toUpperCase());
-                        oldProduct.get().setImageSecondaries(productRequest.getImageSecondaries());
+        int quantity = productRequest.getSizes().stream().mapToInt(Size::getQuantity).sum();
+        long discountedPrice = Math.round(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice());
+        productMapper.productRequestToProduct(productRequest, oldProduct);
+        oldProduct.setUpdateBy(emailAdmin);
+        oldProduct.setDiscountedPrice(discountedPrice);
+        oldProduct.setQuantity(quantity);
+        oldProduct.setBrandProduct(brand);
+        oldProduct.setParentCategoryOfProduct(parentCategory);
+        oldProduct.setChildCategoryOfProduct(childCategory);
+        oldProduct.setColor(productRequest.getColor().toUpperCase());
 
-                        return productRepository.save(oldProduct.get());
-                    } else {
-                        throw new CustomException("Child category not found with id: " + productRequest.getChildCategoryId());
-                    }
-                } else {
-                    throw new CustomException("Parent category not found with id: " + productRequest.getParentCategoryId());
-                }
-            } else {
-                throw new CustomException("Brand not found with id: " + productRequest.getBrandId());
-            }
-        } else {
-            throw new CustomException("Product not found with id: " + id);
-        }
+        return productRepository.save(oldProduct);
     }
 
     @Override
     @Transactional
-    public void deleteProduct(Long id) throws CustomException {
-        Optional<Product> product = productRepository.findById(id);
-        if (product.isPresent()) {
-            productRepository.delete(product.get());
-        } else {
-            throw new CustomException("Product not found with id: " + id);
-        }
+    public Response deleteProduct(Long id) throws ResponseError {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Product not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        ;
+        productRepository.delete(product);
+
+        Response response = new Response();
+        response.setMessage("Delete product success !!!");
+        response.setStatus(HttpStatus.OK.value());
+
+        return response;
     }
 
     @Override
     @Transactional
-    public void deleteSomeProducts(List<Long> listIdProducts) throws CustomException {
+    public Response deleteSomeProducts(List<Long> listIdProducts) throws ResponseError {
+        List<Long> idsMiss = new ArrayList<>();
+
         listIdProducts.forEach(id -> {
-            try {
-                deleteProduct(id);
-            } catch (CustomException e) {
-                throw new RuntimeException(e);
+            Optional<Product> product = productRepository.findById(id);
+            if (product.isPresent()) {
+                productRepository.delete(product.get());
+            } else {
+                idsMiss.add(id);
             }
         });
+
+        String message = idsMiss.isEmpty() ? "Delete some products success !!!" :
+                "Delete some products success, but have some product not found: " + idsMiss.toString();
+
+        Response response = new Response();
+        response.setStatus(HttpStatus.OK.value());
+        response.setMessage(message);
+
+        return response;
     }
 
     @Override
-    public ProductResponse filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
-                                                 Integer discountedPercent, String createBy, String updateBy,String code, Double price, int pageIndex, int pageSize) throws CustomException {
+    public ListProductsResponse filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
+                                                      Integer discountedPercent, String createBy, String updateBy, String code, Double price, int pageIndex, int pageSize) throws ResponseError {
         List<Product> productsFilter = productRepository.filterProductsByAdmin(name,
-                brandId, parentCategoryId, childCategoryId,color, discountedPercent, createBy, updateBy,code,price);
+                brandId, parentCategoryId, childCategoryId, color, discountedPercent, createBy, updateBy, code, price);
 
         Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
         int startIndex = (int) pageable.getOffset();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), productsFilter.size());
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setListProducts(productsFilter.subList(startIndex, endIndex));
-        productResponse.setTotalProduct((long) productsFilter.size());
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setListProducts(productsFilter.subList(startIndex, endIndex));
+        listProductsResponse.setTotalProduct((long) productsFilter.size());
 
-        return productResponse;
+        return listProductsResponse;
     }
 
     @Override
@@ -205,43 +221,41 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse getTwelveNewestProducts() throws CustomException {
+    public ListProductsResponse getTwelveNewestProducts() throws ResponseError {
         List<Product> products = productRepository.findTop12ByOrderByIdDesc();
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setTotalProduct((long) products.size());
-        productResponse.setListProducts(products);
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setTotalProduct((long) products.size());
+        listProductsResponse.setListProducts(products);
 
-        return productResponse;
+        return listProductsResponse;
     }
 
     @Override
-    public ProductResponse getTwelveProductsLeastQuantity() {
+    public ListProductsResponse getTwelveProductsLeastQuantity() {
         List<Product> products = productRepository.findTop12ByOrderByQuantityAsc();
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setTotalProduct((long) products.size());
-        productResponse.setListProducts(products);
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setTotalProduct((long) products.size());
+        listProductsResponse.setListProducts(products);
 
-        return productResponse;
+        return listProductsResponse;
     }
 
     @Override
-    public ProductResponse getTwelveProductsMostQuantity() {
+    public ListProductsResponse getTwelveProductsMostQuantity() {
         List<Product> products = productRepository.findTop12ByOrderByQuantityDesc();
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setTotalProduct((long) products.size());
-        productResponse.setListProducts(products);
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setTotalProduct((long) products.size());
+        listProductsResponse.setListProducts(products);
 
-        return productResponse;
+        return listProductsResponse;
     }
 
-    // not test
-
     @Override
-    public ProductResponse filterProduct(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
-                                         Double minPrice, Double maxPrice, String sort, Boolean sale, int pageIndex, int pageSize) {
+    public ListProductsResponse filterProducts(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
+                                               Double minPrice, Double maxPrice, String sort, Boolean sale, int pageIndex, int pageSize) {
         List<Product> products = productRepository.filterProducts(name, brandId, parentCategoryId, childCategoryId, color, minPrice, maxPrice, sort);
 
         if (sale) {
@@ -252,11 +266,11 @@ public class ProductServiceImpl implements ProductService {
         int startIndex = (int) pageable.getOffset();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), products.size());
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setListProducts(products.subList(startIndex, endIndex));
-        productResponse.setTotalProduct((long) products.size());
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setListProducts(products.subList(startIndex, endIndex));
+        listProductsResponse.setTotalProduct((long) products.size());
 
-        return productResponse;
+        return listProductsResponse;
     }
 
     @Override
@@ -265,13 +279,13 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse getSimilarProductsByBrandId(Long brandId,Long productId) {
-        List<Product>  products = productRepository.findTop12ByBrandProductId(brandId,productId);
+    public ListProductsResponse getSimilarProductsByBrandId(Long brandId, Long productId) {
+        List<Product> products = productRepository.findTop12ByBrandProductId(brandId, productId);
 
-        ProductResponse productResponse = new ProductResponse();
-        productResponse.setTotalProduct((long) products.size());
-        productResponse.setListProducts(products);
-        return productResponse;
+        ListProductsResponse listProductsResponse = new ListProductsResponse();
+        listProductsResponse.setTotalProduct((long) products.size());
+        listProductsResponse.setListProducts(products);
+        return listProductsResponse;
     }
 
     @Override
@@ -290,18 +304,13 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Product getDetailProduct(Long id) throws CustomException {
-        Optional<Product> product = productRepository.findById(id);
-        return product.orElseThrow(() -> new CustomException("Product not found with id: " + id));
-    }
-
-    @Override
-    public String getMainImageBas64(Long idProduct) throws CustomException {
-        return productRepository.getMainImageBase64(idProduct);
-    }
-
-    @Override
-    public List<String> getSecondaryImagesBase64(Long idProduct) throws CustomException {
-        return productRepository.getSecondaryImagesBase64(idProduct);
+    public Product getDetailProduct(Long id) throws ResponseError {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseError(
+                        "Product not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        ;
+        return product;
     }
 }

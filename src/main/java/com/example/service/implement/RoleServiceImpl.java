@@ -5,7 +5,7 @@ import com.example.constant.RoleConstant;
 import com.example.mapper.RoleMapper;
 import com.example.repository.RoleRepository;
 import com.example.request.RoleRequest;
-import com.example.response.ListRoleResponse;
+import com.example.response.ListRolesResponse;
 import com.example.response.Response;
 import com.example.response.ResponseError;
 import com.example.service.RoleService;
@@ -122,18 +122,18 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public ListRoleResponse getAllRoles(int pageIndex, int pageSize) {
+    public ListRolesResponse getAllRoles(int pageIndex, int pageSize) {
         List<Role> roles = roleRepository.findAll();
 
         Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
         int startIndex = (int) pageable.getOffset();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), roles.size());
 
-        ListRoleResponse listRoleResponse = new ListRoleResponse();
-        listRoleResponse.setRoles(roles.subList(startIndex, endIndex));
-        listRoleResponse.setTotal(roles.size());
+        ListRolesResponse listRolesResponse = new ListRolesResponse();
+        listRolesResponse.setRoles(roles.subList(startIndex, endIndex));
+        listRolesResponse.setTotal(roles.size());
 
-        return listRoleResponse;
+        return listRolesResponse;
     }
 
     @Override

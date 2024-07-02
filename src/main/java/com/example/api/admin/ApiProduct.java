@@ -2,7 +2,6 @@ package com.example.api.admin;
 
 import com.example.Entity.Product;
 import com.example.exception.CustomException;
-import com.example.request.FilterProductsByAdminRequest;
 import com.example.request.ProductRequest;
 import com.example.response.*;
 import com.example.service.implement.ProductServiceImpl;
@@ -16,7 +15,6 @@ import java.util.List;
 
 @RestController("productOfRoleAdmin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiProduct {
 
     @Autowired
@@ -24,50 +22,49 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @PostMapping("/product")
-    public ResponseEntity<?> createProduct(@RequestBody ProductRequest productRequest) throws CustomException, IOException {
+    public ResponseEntity<?> createProduct(@RequestBody ProductRequest productRequest) throws ResponseError {
         Product product = productService.createProduct(productRequest);
 
         ResponseData<Product> productResponse = new ResponseData<>();
         productResponse.setResults(product);
         productResponse.setMessage("Product created success !!!");
-        productResponse.setSuccess(true);
+        productResponse.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(productResponse, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @PutMapping("/product")
-    public ResponseEntity<?> updateProduct(@RequestBody ProductRequest productRequest, @RequestParam("id") Long id) throws CustomException, IOException {
+    public ResponseEntity<?> updateProduct(@RequestParam("id") Long id,
+                                           @RequestBody ProductRequest productRequest) throws ResponseError {
         Product product = productService.updateProduct(id, productRequest);
 
         ResponseData<Product> productResponse = new ResponseData<>();
         productResponse.setResults(product);
         productResponse.setMessage("Product updated success !!!");
-        productResponse.setSuccess(true);
+        productResponse.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(productResponse, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/product")
-    public ResponseEntity<?> deleteProduct(@RequestParam("id") Long id) throws CustomException {
-        productService.deleteProduct(id);
+    public ResponseEntity<?> deleteProduct(@RequestParam("id") Long id) throws ResponseError {
+        Response response = productService.deleteProduct(id);
 
-        Response response = new Response();
         response.setMessage("Delete product with id " + id + " success !!!");
-        response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/products/{listIdProducts}")
-    public ResponseEntity<?> deleteSomeProducts(@PathVariable List<Long> listIdProducts) throws CustomException {
-        productService.deleteSomeProducts(listIdProducts);
+    public ResponseEntity<?> deleteSomeProducts(@PathVariable List<Long> listIdProducts) throws ResponseError {
+        Response response =productService.deleteSomeProducts(listIdProducts);
 
-        Response response = new Response();
         response.setMessage("Delete list product have id " + listIdProducts + " success !!!");
-        response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -85,14 +82,14 @@ public class ApiProduct {
                                             @RequestParam(value = "code", required = false) String code,
                                             @RequestParam(value = "price", required = false) Double price,
                                             @RequestParam("pageIndex") int pageIndex,
-                                            @RequestParam("pageSize") int pageSize) throws CustomException {
-        ProductResponse productResponse = productService.filterProductsByAdmin(name, brandId, parentCategoryId, childCategoryId,
+                                            @RequestParam("pageSize") int pageSize) throws ResponseError {
+        ListProductsResponse listProductsResponse = productService.filterProductsByAdmin(name, brandId, parentCategoryId, childCategoryId,
                 color, discountedPercent, createBy, updateBy, code, price, pageIndex, pageSize);
 
-        ResponseData<ProductResponse> responseData = new ResponseData<>();
-        responseData.setResults(productResponse);
+        ResponseData<ListProductsResponse> responseData = new ResponseData<>();
+        responseData.setResults(listProductsResponse);
         responseData.setMessage("Filter products success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
@@ -102,7 +99,7 @@ public class ApiProduct {
         List<QuantityByBrandResponse> quantity = productService.countQuantityByBrand();
 
         ResponseData<List<QuantityByBrandResponse>> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Count quantity by Brand success !!!");
         responseData.setResults(quantity);
 
@@ -114,7 +111,7 @@ public class ApiProduct {
         List<TopBestSellerResponse> topTen = productService.topTenBestSeller();
 
         ResponseData<List<TopBestSellerResponse>> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get top 10 products best seller success !!!");
         responseData.setResults(topTen);
 
@@ -126,8 +123,8 @@ public class ApiProduct {
         long total = productService.stock();
 
         ResponseData<Long> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get total products stock success !!!");
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get total products in stock success !!!");
         responseData.setResults(total);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);

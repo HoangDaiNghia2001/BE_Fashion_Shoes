@@ -1,137 +1,129 @@
 package com.example.api;
 
+import com.example.Entity.Product;
 import com.example.exception.CustomException;
-import com.example.response.ProductResponse;
+import com.example.response.ListProductsResponse;
 import com.example.response.ResponseData;
+import com.example.response.ResponseError;
 import com.example.service.implement.ProductServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController("products")
 @RequestMapping("/api")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiProduct {
 
     @Autowired
     private ProductServiceImpl productService;
 
-    //     CALL SUCCESS
+    // CALL SUCCESS
     @GetMapping("/products")
-    public ResponseEntity<?> filterProductsUser(@RequestParam(value = "name",required = false) String name,
-                                                @RequestParam(value = "brandId",required = false) Long brandId,
-                                                @RequestParam(value = "parentCategoryId",required = false) Long parentCategoryId,
-                                                @RequestParam(value = "childCategoryId",required = false) Long childCategoryId,
-                                                @RequestParam(value = "color",required = false) String color,
-                                                @RequestParam(value = "minPrice",required = false) Double minPrice,
-                                                @RequestParam(value = "maxPrice",required = false) Double maxPrice,
-                                                @RequestParam(value = "sort",required = false) String sort,
-                                                @RequestParam(value = "sale",required = false) Boolean sale,
+    public ResponseEntity<?> filterProductsUser(@RequestParam(value = "name", required = false) String name,
+                                                @RequestParam(value = "brandId", required = false) Long brandId,
+                                                @RequestParam(value = "parentCategoryId", required = false) Long parentCategoryId,
+                                                @RequestParam(value = "childCategoryId", required = false) Long childCategoryId,
+                                                @RequestParam(value = "color", required = false) String color,
+                                                @RequestParam(value = "minPrice", required = false) Double minPrice,
+                                                @RequestParam(value = "maxPrice", required = false) Double maxPrice,
+                                                @RequestParam(value = "sort", required = false) String sort,
+                                                @RequestParam(value = "sale", required = false) Boolean sale,
                                                 @RequestParam("pageIndex") int pageIndex,
                                                 @RequestParam("pageSize") int pageSize) {
-        ProductResponse productResponse = productService.filterProduct(name, brandId, parentCategoryId, childCategoryId,
+        ListProductsResponse listProductsResponse = productService.filterProducts(name, brandId, parentCategoryId, childCategoryId,
                 color, minPrice, maxPrice, sort, sale, pageIndex, pageSize);
 
-        ResponseData<ProductResponse> response = new ResponseData<>();
+        ResponseData<ListProductsResponse> response = new ResponseData<>();
         response.setMessage("Filter products success !!!");
-        response.setSuccess(true);
-        response.setResults(productResponse);
+        response.setStatus(HttpStatus.OK.value());
+        response.setResults(listProductsResponse);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/all/products")
-    public ResponseEntity<?> getAllProducts(){
-        return new ResponseEntity<>(productService.getAllProduct(),HttpStatus.OK);
-    }
-
-    // CALL SUCCESS
-    @GetMapping("/product/images")
-    public ResponseEntity<?> getImageBase64OfProduct(@RequestParam("id") Long id) throws CustomException {
-        List<String> secondaryImages = productService.getSecondaryImagesBase64(id);
-
-        String mainImage = productService.getMainImageBas64(id);
-
-        secondaryImages.add(0,mainImage);
-
-        ResponseData<List<String>> responseData = new ResponseData<>();
-        responseData.setResults(secondaryImages);
-        responseData.setMessage("Get main image success !!!");
-        responseData.setSuccess(true);
-
-        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    public ResponseEntity<?> getAllProducts() {
+        return new ResponseEntity<>(productService.getAllProduct(), HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/products/featured")
-    public ResponseEntity<?> getTwelveNewestProducts() throws CustomException {
-        ProductResponse productResponse = productService.getTwelveNewestProducts();
+    public ResponseEntity<?> getTwelveNewestProducts() throws ResponseError {
+        ListProductsResponse listProductsResponse = productService.getTwelveNewestProducts();
 
-        ResponseData<ProductResponse> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        ResponseData<ListProductsResponse> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get products featured success !!!");
-        responseData.setResults(productResponse);
+        responseData.setResults(listProductsResponse);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/products/bestseller")
-    public ResponseEntity<?> getTwelveProductsLeastQuantity() throws CustomException {
-        ProductResponse productResponse = productService.getTwelveProductsLeastQuantity();
+    public ResponseEntity<?> getTwelveProductsLeastQuantity() throws ResponseError {
+        ListProductsResponse listProductsResponse = productService.getTwelveProductsLeastQuantity();
 
-        ResponseData<ProductResponse> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        ResponseData<ListProductsResponse> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get products featured success !!!");
-        responseData.setResults(productResponse);
+        responseData.setResults(listProductsResponse);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/product/highest/price")
-    public ResponseEntity<?> getHighestPriceOfProduct(){
+    public ResponseEntity<?> getHighestPriceOfProduct() {
         ResponseData<Long> responseData = new ResponseData<>();
         responseData.setResults(productService.getTheHighestPriceOfProduct());
         responseData.setMessage("Get the price highest success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/product/detail")
-    public ResponseEntity<?> getDetailProduct(@RequestParam("id") Long id) throws CustomException {
-        return new ResponseEntity<>(productService.getDetailProduct(id), HttpStatus.OK);
+    public ResponseEntity<?> getDetailProduct(@RequestParam("id") Long id) throws ResponseError {
+        Product product = productService.getDetailProduct(id);
+
+        ResponseData<Product> responseData = new ResponseData<>();
+        responseData.setResults(product);
+        responseData.setMessage("Get the product detail success !!!");
+        responseData.setStatus(HttpStatus.OK.value());
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/products/similar")
     public ResponseEntity<?> getSimilarProducts(@RequestParam("brandId") Long brandId,
-                                                @RequestParam("productId")Long productId){
-        ProductResponse productResponse = productService.getSimilarProductsByBrandId(brandId, productId);
+                                                @RequestParam("productId") Long productId) {
+        ListProductsResponse listProductsResponse = productService.getSimilarProductsByBrandId(brandId, productId);
 
-        ResponseData<ProductResponse> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        ResponseData<ListProductsResponse> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get similar products success !!!");
-        responseData.setResults(productResponse);
+        responseData.setResults(listProductsResponse);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/products/also/like")
-    public ResponseEntity<?> getProductsAlsoLike(){
-        ProductResponse productResponse = productService.getTwelveProductsMostQuantity();
+    public ResponseEntity<?> getProductsAlsoLike() {
+        ListProductsResponse listProductsResponse = productService.getTwelveProductsMostQuantity();
 
-        ResponseData<ProductResponse> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        ResponseData<ListProductsResponse> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get products also like success !!!");
-        responseData.setResults(productResponse);
+        responseData.setResults(listProductsResponse);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }

@@ -4,7 +4,6 @@ import com.example.Entity.*;
 import com.example.config.JwtProvider;
 import com.example.config.VNPayConfig;
 import com.example.constant.CookieConstant;
-import com.example.constant.JwtConstant;
 import com.example.constant.OrderConstant;
 import com.example.exception.CustomException;
 import com.example.repository.*;
@@ -303,12 +302,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public ListOrderResponse getAllOrderDetailByAdmin(String orderBy, String phoneNumber, String orderStatus, String paymentMethod,
-                                                      String province, String district, String ward,
-                                                      LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
-                                                      LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
-                                                      LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
-                                                      int pageIndex, int pageSize) {
+    public ListOrdersResponse getAllOrderDetailByAdmin(String orderBy, String phoneNumber, String orderStatus, String paymentMethod,
+                                                       String province, String district, String ward,
+                                                       LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
+                                                       LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
+                                                       LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
+                                                       int pageIndex, int pageSize) {
 
         List<Order> orderList = orderRepository.getOrdersByAdmin(orderBy, phoneNumber, orderStatus, paymentMethod, province, district,
                 ward, orderDateStart, orderDateEnd, deliveryDateStart, deliveryDateEnd, receivingDateStart, receivingDateEnd);
@@ -317,11 +316,11 @@ public class OrderServiceImpl implements OrderService {
         int startIndex = (int) pageable.getOffset();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), orderList.size());
 
-        ListOrderResponse listOrderResponse = new ListOrderResponse();
-        listOrderResponse.setListOrders(getOrdersResponse(orderList.subList(startIndex, endIndex)));
-        listOrderResponse.setTotal((long) orderList.size());
+        ListOrdersResponse listOrdersResponse = new ListOrdersResponse();
+        listOrdersResponse.setListOrders(getOrdersResponse(orderList.subList(startIndex, endIndex)));
+        listOrdersResponse.setTotal((long) orderList.size());
 
-        return listOrderResponse;
+        return listOrdersResponse;
     }
 
     @Override
