@@ -10,7 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController("productOfRoleAdmin")
@@ -22,7 +21,7 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @PostMapping("/product")
-    public ResponseEntity<?> createProduct(@RequestBody ProductRequest productRequest) throws ResponseError {
+    public ResponseEntity<?> createProduct(@RequestBody ProductRequest productRequest) throws CustomException {
         Product product = productService.createProduct(productRequest);
 
         ResponseData<Product> productResponse = new ResponseData<>();
@@ -36,7 +35,7 @@ public class ApiProduct {
     // CALL SUCCESS
     @PutMapping("/product")
     public ResponseEntity<?> updateProduct(@RequestParam("id") Long id,
-                                           @RequestBody ProductRequest productRequest) throws ResponseError {
+                                           @RequestBody ProductRequest productRequest) throws CustomException {
         Product product = productService.updateProduct(id, productRequest);
 
         ResponseData<Product> productResponse = new ResponseData<>();
@@ -49,23 +48,15 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @DeleteMapping("/product")
-    public ResponseEntity<?> deleteProduct(@RequestParam("id") Long id) throws ResponseError {
+    public ResponseEntity<?> deleteProduct(@RequestParam("id") Long id) throws CustomException {
         Response response = productService.deleteProduct(id);
-
-        response.setMessage("Delete product with id " + id + " success !!!");
-        response.setStatus(HttpStatus.OK.value());
-
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/products/{listIdProducts}")
-    public ResponseEntity<?> deleteSomeProducts(@PathVariable List<Long> listIdProducts) throws ResponseError {
+    public ResponseEntity<?> deleteSomeProducts(@PathVariable List<Long> listIdProducts) throws CustomException {
         Response response =productService.deleteSomeProducts(listIdProducts);
-
-        response.setMessage("Delete list product have id " + listIdProducts + " success !!!");
-        response.setStatus(HttpStatus.OK.value());
-
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
@@ -82,7 +73,7 @@ public class ApiProduct {
                                             @RequestParam(value = "code", required = false) String code,
                                             @RequestParam(value = "price", required = false) Double price,
                                             @RequestParam("pageIndex") int pageIndex,
-                                            @RequestParam("pageSize") int pageSize) throws ResponseError {
+                                            @RequestParam("pageSize") int pageSize) throws CustomException {
         ListProductsResponse listProductsResponse = productService.filterProductsByAdmin(name, brandId, parentCategoryId, childCategoryId,
                 color, discountedPercent, createBy, updateBy, code, price, pageIndex, pageSize);
 

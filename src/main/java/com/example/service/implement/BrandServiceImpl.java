@@ -1,6 +1,7 @@
 package com.example.service.implement;
 
 import com.example.Entity.Brand;
+import com.example.exception.CustomException;
 import com.example.mapper.BrandMapper;
 import com.example.mapper.ChildCategoryMapper;
 import com.example.mapper.ParentCategoryMapper;
@@ -30,6 +31,16 @@ public class BrandServiceImpl implements BrandService {
     private ParentCategoryMapper parentCategoryMapper;
     @Autowired
     private ChildCategoryMapper childCategoryMapper;
+
+    @Override
+    public Brand getById(Long id) throws CustomException {
+        Brand brand = brandRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Brand not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return brand;
+    }
 
     @Override
     public List<BrandResponse> getAllBrandsDetailByAdmin() {
@@ -70,13 +81,13 @@ public class BrandServiceImpl implements BrandService {
 
     @Override
     @Transactional
-    public Brand createBrand(BrandRequest brandRequest) throws ResponseError {
+    public Brand createBrand(BrandRequest brandRequest) throws CustomException {
         brandRequest.setName(brandRequest.getName().toUpperCase());
 
         Optional<Brand> brandExist = brandRepository.findByName(brandRequest.getName());
 
         if (brandExist.isPresent()) {
-            throw new ResponseError(
+            throw new CustomException(
                     "Brand is already exist with name: " + brandExist.get().getName(),
                     HttpStatus.CONFLICT.value());
         }
@@ -92,12 +103,8 @@ public class BrandServiceImpl implements BrandService {
 
     @Override
     @Transactional
-    public Brand updateBrand(Long id, BrandRequest brandRequest) throws ResponseError {
-        Brand oldBrand = brandRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Brand updateBrand(Long id, BrandRequest brandRequest) throws CustomException {
+        Brand oldBrand = this.getById(id);
 
         brandRequest.setName(brandRequest.getName().toUpperCase());
 
@@ -111,19 +118,16 @@ public class BrandServiceImpl implements BrandService {
 
             return brandRepository.save(oldBrand);
         } else {
-            throw new ResponseError("The brand with name " + brandExist.get().getName() + " is already exist !!!",
+            throw new CustomException("The brand with name " + brandExist.get().getName() + " is already exist !!!",
                     HttpStatus.CONFLICT.value());
         }
     }
 
     @Override
     @Transactional
-    public Response deleteBrand(Long id) throws ResponseError {
-        Brand brand = brandRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Response deleteBrand(Long id) throws CustomException {
+        Brand brand = this.getById(id);
+
         brandRepository.delete(brand);
         Response response = new Response();
         response.setMessage("Delete brand success !!!");

@@ -1,12 +1,11 @@
 package com.example.api.admin;
 
 import com.example.Entity.Brand;
-import com.example.exception.CustomException;
 import com.example.request.BrandRequest;
 import com.example.response.BrandResponse;
 import com.example.response.Response;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.service.implement.BrandServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -36,7 +35,7 @@ public class ApiBrand {
 
     // CALL SUCCESS
     @PostMapping("/brand")
-    public ResponseEntity<?> createBrand(@RequestBody BrandRequest brandRequest) throws ResponseError {
+    public ResponseEntity<?> createBrand(@RequestBody BrandRequest brandRequest) throws CustomException {
         Brand brand = brandService.createBrand(brandRequest);
 
         ResponseData<Brand> responseData = new ResponseData<>();
@@ -50,7 +49,7 @@ public class ApiBrand {
     // CALL SUCCESS
     @PutMapping("/brand")
     public ResponseEntity<?> updateBrand(@RequestParam("id") Long id,
-                                         @RequestBody BrandRequest brandRequest) throws ResponseError {
+                                         @RequestBody BrandRequest brandRequest) throws CustomException {
         Brand brand = brandService.updateBrand(id, brandRequest);
 
         ResponseData<Brand> responseData = new ResponseData<>();
@@ -63,7 +62,7 @@ public class ApiBrand {
 
     // CALL SUCCESS
     @DeleteMapping("/brand")
-    public ResponseEntity<?> deleteBrand(@RequestParam("id") Long id) throws ResponseError {
+    public ResponseEntity<?> deleteBrand(@RequestParam("id") Long id) throws CustomException {
         Response response = brandService.deleteBrand(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

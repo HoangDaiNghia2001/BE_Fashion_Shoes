@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    @Query("select p from Product p where (?1 is null or p.name like %?1%) and" +
+    @Query("select p from Product p where (?1 is null or p.name like %?1% or p.code = ?1) and " +
             "(?2 is null or p.brandProduct.id = ?2) and " +
             "(?3 is null or p.parentCategoryOfProduct.id = ?3) and " +
             "(?4 is null or p.childCategoryOfProduct.id = ?4) and " +
@@ -37,14 +37,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId,
                                         String color, Integer discountedPercent, String createBy, String updateBy, String code, Double price);
 
-
-
-    @Query("select p.mainImageBase64 from Product p where p.id=?1")
-    String getMainImageBase64(Long id);
-
-    @Query("select p.imageSecondaries from Product p where p.id =?1")
-    List<String> getSecondaryImagesBase64(Long id);
-
     List<Product> findTop12ByOrderByIdDesc();
 
     List<Product> findTop12ByOrderByQuantityAsc();
@@ -65,10 +57,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "group by b.id")
     List<QuantityByBrandResponse> countQuantityByBand();
 
-    @Query("select new com.example.response.TopBestSellerResponse(p.id, p.name,p.quantity,sum(o.totalPrice), sum(o.quantity)) " +
+    @Query(value = "select new com.example.response.TopBestSellerResponse(o.product.id,o.product.code, o.product.name, o.product.quantity, sum(o.totalPrice), sum(o.quantity)) " +
             "from OrderLine o " +
-            "left join Product p " +
-            "on o.product.id = p.id " +
             "group by o.product.id " +
             "order by sum(o.quantity) desc " +
             "limit 10")

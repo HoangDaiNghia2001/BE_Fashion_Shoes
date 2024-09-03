@@ -1,13 +1,14 @@
 package com.example.service.implement;
 
 import com.example.Entity.*;
+import com.example.exception.CustomException;
 import com.example.mapper.ProductMapper;
-import com.example.repository.BrandRepository;
-import com.example.repository.ChildCategoryRepository;
-import com.example.repository.ParentCategoryRepository;
 import com.example.repository.ProductRepository;
 import com.example.request.ProductRequest;
 import com.example.response.*;
+import com.example.service.BrandService;
+import com.example.service.ChildCategoryService;
+import com.example.service.ParentCategoryService;
 import com.example.service.ProductService;
 import com.example.util.MethodUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,11 +29,11 @@ public class ProductServiceImpl implements ProductService {
     @Autowired
     private ProductRepository productRepository;
     @Autowired
-    private BrandRepository brandRepository;
+    private BrandService brandService;
     @Autowired
-    private ParentCategoryRepository parentCategoryRepository;
+    private ParentCategoryService parentCategoryService;
     @Autowired
-    private ChildCategoryRepository childCategoryRepository;
+    private ChildCategoryService childCategoryService;
     @Autowired
     private ProductMapper productMapper;
     @Autowired
@@ -50,51 +51,44 @@ public class ProductServiceImpl implements ProductService {
         return code.toUpperCase();
     }
 
-    @Override
-    @Transactional
-    public Product createProduct(ProductRequest productRequest) throws ResponseError {
-        Brand brand = brandRepository.findById(productRequest.getBrandId())
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found with id: " + productRequest.getBrandId(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    private long calculatePrice(double price, int discountedPercent){
+        return Math.round(price - ((double) discountedPercent / 100) * price);
+    }
 
-        ParentCategory parentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), brand.getId())
-                .orElseThrow(() -> new ResponseError(
-                        new StringBuilder("Parent category with id ")
-                                .append(productRequest.getParentCategoryId())
-                                .append(" and have brand id ")
-                                .append(brand.getId())
-                                .append(" not exist !!!")
-                                .toString(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
-
-        ChildCategory childCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId())
-                .orElseThrow(() -> new ResponseError(
-                        new StringBuilder("Child category with id ")
-                                .append(productRequest.getChildCategoryId())
-                                .append(" and have parent category id ")
-                                .append(parentCategory.getId())
-                                .append(" not exist !!!")
-                                .toString(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
-
-        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
-
-        int quantity = productRequest.getSizes().stream()
+    private int calculateQuantity(ProductRequest productRequest){
+        return productRequest.getSizes().stream()
                 .mapToInt(Size::getQuantity)
                 .sum();
-        long discountedPrice = Math.round(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice());
+    }
+    @Override
+    public Product getById(Long id) throws CustomException {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Product not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return product;
+    }
+
+    @Override
+    @Transactional
+    public Product createProduct(ProductRequest productRequest) throws CustomException {
+        Brand brand = brandService.getById(productRequest.getBrandId());
+
+        ParentCategory parentCategory = parentCategoryService.getByIdAndBrandId(productRequest.getParentCategoryId(), brand.getId());
+
+        ChildCategory childCategory = childCategoryService.getByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId());
+
+        String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
         Product product = new Product();
         productMapper.productRequestToProduct(productRequest, product);
 
+        product.setSizes(productRequest.getSizes());
         product.setCode(generateUniqueCode(brand.getName()));
         product.setCreatedBy(emailAdmin);
-        product.setDiscountedPrice(discountedPrice);
-        product.setQuantity(quantity);
+        product.setDiscountedPrice(this.calculatePrice(productRequest.getPrice(), productRequest.getDiscountedPercent()));
+        product.setQuantity(this.calculateQuantity(productRequest));
         product.setBrandProduct(brand);
         product.setParentCategoryOfProduct(parentCategory);
         product.setChildCategoryOfProduct(childCategory);
@@ -105,66 +99,35 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public Product updateProduct(Long id, ProductRequest productRequest) throws ResponseError {
-        Product oldProduct = productRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Product not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Product updateProduct(Long id, ProductRequest productRequest) throws CustomException {
+        System.out.println(productRequest);
+        Product oldProduct = this.getById(id);
 
-        Brand brand = brandRepository.findById(productRequest.getBrandId())
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found with id: " + productRequest.getBrandId(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        Brand brand = brandService.getById(productRequest.getBrandId());
 
-        ParentCategory parentCategory = parentCategoryRepository.findByIdAndAndBrandId(productRequest.getParentCategoryId(), brand.getId())
-                .orElseThrow(() -> new ResponseError(
-                        new StringBuilder("Parent category with id ")
-                                .append(productRequest.getParentCategoryId())
-                                .append(" and have brand id ")
-                                .append(brand.getId())
-                                .append(" not exist !!!")
-                                .toString(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        ParentCategory parentCategory = parentCategoryService.getByIdAndBrandId(productRequest.getParentCategoryId(), brand.getId());
 
-        ChildCategory childCategory = childCategoryRepository.findByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId())
-                .orElseThrow(() -> new ResponseError(
-                        new StringBuilder("Child category with id ")
-                                .append(productRequest.getChildCategoryId())
-                                .append(" and have parent category id ")
-                                .append(parentCategory.getId())
-                                .append(" not exist !!!")
-                                .toString(),
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        ChildCategory childCategory = childCategoryService.getByIdAndParentCategoryId(productRequest.getChildCategoryId(), parentCategory.getId());
 
         String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-        int quantity = productRequest.getSizes().stream().mapToInt(Size::getQuantity).sum();
-        long discountedPrice = Math.round(productRequest.getPrice() - ((double) productRequest.getDiscountedPercent() / 100) * productRequest.getPrice());
+        productRequest.setColor(productRequest.getColor().toUpperCase());
         productMapper.productRequestToProduct(productRequest, oldProduct);
+        oldProduct.setSizes(productRequest.getSizes());
         oldProduct.setUpdateBy(emailAdmin);
-        oldProduct.setDiscountedPrice(discountedPrice);
-        oldProduct.setQuantity(quantity);
+        oldProduct.setDiscountedPrice(this.calculatePrice(productRequest.getPrice(), productRequest.getDiscountedPercent()));
+        oldProduct.setQuantity(this.calculateQuantity(productRequest));
         oldProduct.setBrandProduct(brand);
         oldProduct.setParentCategoryOfProduct(parentCategory);
         oldProduct.setChildCategoryOfProduct(childCategory);
-        oldProduct.setColor(productRequest.getColor().toUpperCase());
 
         return productRepository.save(oldProduct);
     }
 
     @Override
     @Transactional
-    public Response deleteProduct(Long id) throws ResponseError {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Product not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
-        ;
+    public Response deleteProduct(Long id) throws CustomException {
+        Product product = this.getById(id);
         productRepository.delete(product);
 
         Response response = new Response();
@@ -176,20 +139,17 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public Response deleteSomeProducts(List<Long> listIdProducts) throws ResponseError {
-        List<Long> idsMiss = new ArrayList<>();
+    public Response deleteSomeProducts(List<Long> listIdProducts) throws CustomException {
+        List<Product> lstProductDelete = productRepository.findAllById(listIdProducts);
 
-        listIdProducts.forEach(id -> {
-            Optional<Product> product = productRepository.findById(id);
-            if (product.isPresent()) {
-                productRepository.delete(product.get());
-            } else {
-                idsMiss.add(id);
-            }
-        });
+        List<Long> lstIdProductDelete = lstProductDelete.stream().map(Product::getId).collect(Collectors.toList());
 
-        String message = idsMiss.isEmpty() ? "Delete some products success !!!" :
-                "Delete some products success, but have some product not found: " + idsMiss.toString();
+        List<Long> lstIdProductMiss = listIdProducts.stream().filter(id -> !lstIdProductDelete.contains(id)).collect(Collectors.toList());
+
+        productRepository.deleteAll(lstProductDelete);
+
+        String message = lstIdProductMiss.isEmpty() ? "Delete some products success !!!" :
+                "Delete some products success, but have some products not found: " + lstIdProductMiss;
 
         Response response = new Response();
         response.setStatus(HttpStatus.OK.value());
@@ -200,7 +160,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ListProductsResponse filterProductsByAdmin(String name, Long brandId, Long parentCategoryId, Long childCategoryId, String color,
-                                                      Integer discountedPercent, String createBy, String updateBy, String code, Double price, int pageIndex, int pageSize) throws ResponseError {
+                                                      Integer discountedPercent, String createBy, String updateBy, String code, Double price, int pageIndex, int pageSize) throws CustomException {
         List<Product> productsFilter = productRepository.filterProductsByAdmin(name,
                 brandId, parentCategoryId, childCategoryId, color, discountedPercent, createBy, updateBy, code, price);
 
@@ -221,7 +181,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ListProductsResponse getTwelveNewestProducts() throws ResponseError {
+    public ListProductsResponse getTwelveNewestProducts() throws CustomException {
         List<Product> products = productRepository.findTop12ByOrderByIdDesc();
 
         ListProductsResponse listProductsResponse = new ListProductsResponse();
@@ -304,13 +264,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Product getDetailProduct(Long id) throws ResponseError {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Product not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
-        ;
-        return product;
+    public Set<Size> getSizesOfProduct(Long id) throws CustomException {
+        Product product = this.getById(id);
+        return product.getSizes();
     }
 }

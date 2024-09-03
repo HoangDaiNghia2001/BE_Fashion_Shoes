@@ -3,94 +3,93 @@ package com.example.service.implement;
 import com.example.Entity.Comment;
 import com.example.Entity.Product;
 import com.example.Entity.User;
-import com.example.config.JwtProvider;
-import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
+import com.example.mapper.CommentMapper;
 import com.example.repository.CommentRepository;
-import com.example.repository.ProductRepository;
 import com.example.request.CommentRequest;
+import com.example.response.Response;
+import com.example.exception.CustomException;
 import com.example.service.CommentService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.example.service.ProductService;
+import com.example.util.MethodUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class CommentServiceImpl implements CommentService {
     @Autowired
     private CommentRepository commentRepository;
     @Autowired
-    private JwtProvider jwtProvider;
-    @Autowired
-    private HttpServletRequest request;
+    private MethodUtils methodUtils;
     @Autowired
     private UserServiceImpl userService;
     @Autowired
-    private ProductRepository productRepository;
+    private ProductService productService;
+    @Autowired
+    private CommentMapper commentMapper;
 
     @Override
-    @Transactional
-    public Comment createComment(Long idProduct, CommentRequest commentRequest, MultipartFile[] multipartFiles) throws CustomException, IOException {
-        Optional<Product> product = productRepository.findById(idProduct);
-
-        if(product.isPresent()){
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-            User user = userService.findUserProfileByJwt(token);
-
-            Comment comment = new Comment();
-            comment.setComment(commentRequest.getComment());
-            comment.setProductOfComment(product.get());
-            comment.setUserOfComment(user);
-//            comment.setImageComments(imageComments);
-            comment.setCreatedBy(user.getEmail());
-
-            return commentRepository.save(comment);
-        }else{
-            throw new CustomException("Product not found with id:" + idProduct);
-        }
+    public Comment getById(Long id) throws CustomException {
+        Comment comment = commentRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Comment not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return comment;
     }
 
     @Override
     @Transactional
-    public Comment updateComment(Long id, CommentRequest commentRequest, MultipartFile[] multipartFiles) throws CustomException, IOException {
-        Optional<Comment> oldComment = commentRepository.findById(id);
+    public Comment createComment(Long idProduct, CommentRequest commentRequest, MultipartFile[] multipartFiles) throws CustomException {
+        Product product = productService.getById(idProduct);
 
-        if(oldComment.isPresent()){
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-            User user = userService.findUserProfileByJwt(token);
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
 
-            if(oldComment.get().getUserOfComment().getId().equals(user.getId())){
+        Comment comment = new Comment();
+        commentMapper.commentRequestToComment(commentRequest, comment);
+        comment.setProductOfComment(product);
+        comment.setUserOfComment(user);
+        comment.setCreatedBy(user.getEmail());
 
-                oldComment.get().setComment(commentRequest.getComment());
-                oldComment.get().setUpdateBy(user.getEmail());
-//                oldComment.get().setImageComments(imageComments);
-
-                return commentRepository.save(oldComment.get());
-            }else{
-                throw new CustomException("You do not have permission to edit this comment !!!");
-            }
-        }else{
-            throw new CustomException("Comment not found with id: " + id);
-        }
+        return commentRepository.save(comment);
     }
 
     @Override
     @Transactional
-    public String deleteCommentByAdmin(Long id) throws CustomException {
-        Optional<Comment> comment = commentRepository.findById(id);
-        if(comment.isPresent()){
-            commentRepository.delete(comment.get());
-            return "Delete success !!!";
-        }else{
-            return "Comment not found with id: " + id;
+    public Comment updateComment(Long id, CommentRequest commentRequest, MultipartFile[] multipartFiles) throws CustomException {
+        Comment oldComment = this.getById(id);
+
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
+
+        if (!oldComment.getUserOfComment().getId().equals(user.getId())) {
+            throw new CustomException(
+                    "You do not have permission to edit this comment !!!",
+                    HttpStatus.UNAUTHORIZED.value());
         }
+        commentMapper.commentRequestToComment(commentRequest, oldComment);
+        oldComment.setUpdateBy(user.getEmail());
+
+        return commentRepository.save(oldComment);
+    }
+
+    @Override
+    @Transactional
+    public Response deleteCommentByAdmin(Long id) throws CustomException {
+        Comment comment =this.getById(id);
+        commentRepository.delete(comment);
+        Response response = new Response();
+        response.setStatus(HttpStatus.OK.value());
+        response.setMessage("Delete comment success");
+
+        return response;
     }
 
     @Override
@@ -105,26 +104,26 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public List<Comment> getAllComment(int pageIndex, int pageSize) {
-        Pageable pageable = PageRequest.of(pageIndex-1,pageSize);
+        Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
         return commentRepository.findAll(pageable).getContent();
     }
 
     @Override
-    public String deleteCommentByUser(Long id) throws CustomException {
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        User user = userService.findUserProfileByJwt(token);
+    public Response deleteCommentByUser(Long id) throws CustomException {
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
 
-        Optional<Comment> comment = commentRepository.findById(id);
-
-        if(comment.isPresent()){
-            if(comment.get().getUserOfComment().getId().equals(user.getId())){
-                commentRepository.delete(comment.get());
-                return "Delete success !!!";
-            }else{
-                throw new CustomException("You do not have permission to delete this comment !!!");
-            }
-        }else{
-            return "Comment not found with id: " + id;
+        Comment comment = this.getById(id);
+        if (!comment.getUserOfComment().getId().equals(user.getId())) {
+            throw new CustomException(
+                    "You do not have permission to delete this comment !!!",
+                    HttpStatus.UNAUTHORIZED.value());
         }
+        commentRepository.delete(comment);
+        Response response = new Response();
+        response.setStatus(HttpStatus.OK.value());
+        response.setMessage("Delete comment success");
+
+        return response;
     }
 }

@@ -1,5 +1,6 @@
 package com.example.response;
 
+import com.example.Entity.Product;
 import com.example.Entity.Size;
 
 import java.util.List;
@@ -7,31 +8,22 @@ import java.util.Set;
 
 public class CartItemResponse {
     private Long id;
-    private Long idProduct;
-    private String nameProduct;
-    private String titleProduct;
     private double totalPrice;
     private int size;
     private int quantity;
-    private String mainImageBase64;
-    private String color;
-    private Set<Size> sizeProduct;
+    private boolean outOffStock;
+    private Product product;
 
     public CartItemResponse() {
     }
 
-    public CartItemResponse(Long id, Long idProduct, String nameProduct, String titleProduct,
-                            double totalPrice, int size, int quantity, String mainImageBase64, String color, Set<Size> sizeProduct) {
+    public CartItemResponse(Long id, double totalPrice, int size, int quantity, boolean outOffStock, Product product) {
         this.id = id;
-        this.idProduct = idProduct;
-        this.nameProduct = nameProduct;
-        this.titleProduct = titleProduct;
         this.totalPrice = totalPrice;
         this.size = size;
         this.quantity = quantity;
-        this.mainImageBase64 = mainImageBase64;
-        this.color = color;
-        this.sizeProduct = sizeProduct;
+        this.outOffStock = outOffStock;
+        this.product = product;
     }
 
     public Long getId() {
@@ -40,30 +32,6 @@ public class CartItemResponse {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public Long getIdProduct() {
-        return idProduct;
-    }
-
-    public void setIdProduct(Long idProduct) {
-        this.idProduct = idProduct;
-    }
-
-    public String getNameProduct() {
-        return nameProduct;
-    }
-
-    public void setNameProduct(String nameProduct) {
-        this.nameProduct = nameProduct;
-    }
-
-    public String getTitleProduct() {
-        return titleProduct;
-    }
-
-    public void setTitleProduct(String titleProduct) {
-        this.titleProduct = titleProduct;
     }
 
     public double getTotalPrice() {
@@ -90,27 +58,19 @@ public class CartItemResponse {
         this.quantity = quantity;
     }
 
-    public String getMainImageBase64() {
-        return mainImageBase64;
+    public Product getProduct() {
+        return product;
     }
 
-    public void setMainImageBase64(String mainImageBase64) {
-        this.mainImageBase64 = mainImageBase64;
+    public void setProduct(Product product) {
+        this.product = product;
     }
 
-    public String getColor() {
-        return color;
+    public boolean isOutOffStock() {
+        return outOffStock;
     }
 
-    public void setColor(String color) {
-        this.color = color;
-    }
-
-    public Set<Size> getSizeProduct() {
-        return sizeProduct;
-    }
-
-    public void setSizeProduct(Set<Size> sizeProduct) {
-        this.sizeProduct = sizeProduct;
+    public void setOutOffStock(boolean outOffStock) {
+        this.outOffStock = outOffStock;
     }
 }

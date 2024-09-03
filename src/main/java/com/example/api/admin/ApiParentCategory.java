@@ -1,18 +1,15 @@
 package com.example.api.admin;
 
 import com.example.Entity.ParentCategory;
-import com.example.exception.CustomException;
 import com.example.request.ParentCategoryRequest;
 import com.example.response.Response;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.service.implement.ParentCategoryServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController("parentCategoryRoleAdmin")
 @RequestMapping("/api/admin")
@@ -22,7 +19,7 @@ public class ApiParentCategory {
 
     // CALL SUCCESS
     @PostMapping("/parentCategory")
-    public ResponseEntity<?> createParentCategory(@RequestBody ParentCategoryRequest parentCategoryRequest) throws ResponseError {
+    public ResponseEntity<?> createParentCategory(@RequestBody ParentCategoryRequest parentCategoryRequest) throws CustomException {
         ParentCategory parentCategory = parentCategoryService.createdParentCategory(parentCategoryRequest);
 
         ResponseData<ParentCategory> responseData = new ResponseData<>();
@@ -36,7 +33,7 @@ public class ApiParentCategory {
     // CALL SUCCESS
     @PutMapping("parentCategory")
     public ResponseEntity<?> updateParentCategory(@RequestParam("id") Long id,
-                                                  @RequestBody ParentCategoryRequest parentCategoryRequest) throws ResponseError {
+                                                  @RequestBody ParentCategoryRequest parentCategoryRequest) throws CustomException {
         ParentCategory parentCategory = parentCategoryService.updateParentCategory(id, parentCategoryRequest);
 
         ResponseData<ParentCategory> responseData = new ResponseData<>();
@@ -49,7 +46,7 @@ public class ApiParentCategory {
 
     // CALL SUCCESS
     @DeleteMapping("/parentCategory")
-    public ResponseEntity<?> deleteParentCategory(@RequestParam("id") Long id) throws ResponseError {
+    public ResponseEntity<?> deleteParentCategory(@RequestParam("id") Long id) throws CustomException {
         Response response = parentCategoryService.deleteParentCategory(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

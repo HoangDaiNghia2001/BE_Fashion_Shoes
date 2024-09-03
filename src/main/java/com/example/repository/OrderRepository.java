@@ -37,12 +37,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "(?3 is null or o.paymentMethod = ?3) and" +
             "(?4 is null and ?5 is null or o.orderDate between ?4 and ?5) and" +
             "(?6 is null and ?7 is null or o.deliveryDate between ?6 and ?7) and " +
-            "(?8 is null and ?9 is null or o.receivingDate between ?8 and ?9)" +
+            "(?8 is null and ?9 is null or o.receivingDate between ?8 and ?9) and " +
+            "(?10 is null or o.code = ?10)" +
             "order by o.id desc ")
     List<Order> getOrdersByUser(long idUser, String orderStatus, String paymentMethod,
                                 LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
                                 LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
-                                LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd);
+                                LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd, String orderCode);
 
 
     @Query("select sum(o.totalPrice) from Order o where o.pay = 'PAID'")

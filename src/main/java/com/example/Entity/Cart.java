@@ -16,19 +16,22 @@ public class Cart extends BaseEntity{
     @Column(name = "total_price")
     private double totalPrice;
 
+    @Column(name = "out_off_stock")
+    private boolean outOffStock = false;
+
     @ManyToOne
     @JoinColumn(name = "product_id")
     private Product product;
 
-//    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    public Cart(int quantity, int size, double totalPrice, Product product, User user) {
+    public Cart(int quantity, int size, double totalPrice, boolean outOffStock, Product product, User user) {
         this.quantity = quantity;
         this.size = size;
         this.totalPrice = totalPrice;
+        this.outOffStock = outOffStock;
         this.product = product;
         this.user = user;
     }
@@ -75,5 +78,13 @@ public class Cart extends BaseEntity{
 
     public void setTotalPrice(double totalPrice) {
         this.totalPrice = totalPrice;
+    }
+
+    public boolean isOutOffStock() {
+        return outOffStock;
+    }
+
+    public void setOutOfStock(boolean outOffStock) {
+        this.outOffStock = outOffStock;
     }
 }

@@ -2,19 +2,13 @@ package com.example.service.implement;
 
 import com.example.Entity.Brand;
 import com.example.Entity.ParentCategory;
-import com.example.Entity.User;
-import com.example.config.JwtProvider;
-import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
-import com.example.mapper.ParentCategoryMapper;
-import com.example.repository.BrandRepository;
 import com.example.repository.ParentCategoryRepository;
 import com.example.request.ParentCategoryRequest;
 import com.example.response.Response;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
+import com.example.service.BrandService;
 import com.example.service.ParentCategoryService;
 import com.example.util.MethodUtils;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,27 +20,48 @@ import java.util.Set;
 @Service
 public class ParentCategoryServiceImpl implements ParentCategoryService {
     @Autowired
-    private BrandRepository brandRepository;
+    private BrandService brandService;
     @Autowired
     private ParentCategoryRepository parentCategoryRepository;
     @Autowired
     private MethodUtils methodUtils;
 
     @Override
-    @Transactional
-    public ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws ResponseError {
-        Brand brand = brandRepository.findById(parentCategoryRequest.getBrandId())
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found !!!",
+    public ParentCategory getById(Long id) throws CustomException {
+        ParentCategory parentCategory = parentCategoryRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Parent category with id: " + id + " not found !!!",
                         HttpStatus.NOT_FOUND.value()
                 ));
+        return parentCategory;
+    }
+
+    @Override
+    public ParentCategory getByIdAndBrandId(Long id, Long brandId) throws CustomException {
+        ParentCategory parentCategory = parentCategoryRepository.findByIdAndAndBrandId(id, brandId)
+                .orElseThrow(() -> new CustomException(
+                        new StringBuilder("Parent category with id ")
+                                .append(id)
+                                .append(" and have brand id ")
+                                .append(brandId)
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return parentCategory;
+    }
+
+    @Override
+    @Transactional
+    public ParentCategory createdParentCategory(ParentCategoryRequest parentCategoryRequest) throws CustomException {
+        Brand brand = brandService.getById(parentCategoryRequest.getBrandId());
 
         parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
 
         Optional<ParentCategory> parentCategoryExist = parentCategoryRepository.findByNameAndBrandId(parentCategoryRequest.getName(), brand.getId());
 
         if (parentCategoryExist.isPresent()) {
-            throw new ResponseError("Parent category with name " + parentCategoryRequest.getName() + " of brand " + brand.getName() + " already exist !!!",
+            throw new CustomException("Parent category with name " + parentCategoryRequest.getName() + " of brand " + brand.getName() + " already exist !!!",
                     HttpStatus.CONFLICT.value());
         }
         String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
@@ -62,12 +77,15 @@ public class ParentCategoryServiceImpl implements ParentCategoryService {
 
     @Override
     @Transactional
-    public ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws ResponseError {
-        ParentCategory oldParentCategory = parentCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Parent category with id: " + id + " not found !!!",
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public ParentCategory updateParentCategory(Long id, ParentCategoryRequest parentCategoryRequest) throws CustomException {
+        ParentCategory oldParentCategory = this.getById(id);
+
+        if(!oldParentCategory.getBrand().getId().equals(parentCategoryRequest.getBrandId())){
+            throw new CustomException(
+                    "Brand id request does not match with brand id of this parent category",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
 
         parentCategoryRequest.setName(parentCategoryRequest.getName().toUpperCase());
 
@@ -81,19 +99,15 @@ public class ParentCategoryServiceImpl implements ParentCategoryService {
 
             return parentCategoryRepository.save(oldParentCategory);
         } else {
-            throw new ResponseError("Parent category with name " + parentCategoryRequest.getName() + " of brand " + oldParentCategory.getBrand().getName() + " already exist !!!",
+            throw new CustomException("Parent category with name " + parentCategoryRequest.getName() + " of brand " + oldParentCategory.getBrand().getName() + " already exist !!!",
                     HttpStatus.CONFLICT.value());
         }
     }
 
     @Override
     @Transactional
-    public Response deleteParentCategory(Long id) throws ResponseError {
-        ParentCategory parentCategory = parentCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Parent category not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Response deleteParentCategory(Long id) throws CustomException {
+        ParentCategory parentCategory = this.getById(id);
         parentCategoryRepository.delete(parentCategory);
 
         Response response = new Response();
@@ -104,12 +118,8 @@ public class ParentCategoryServiceImpl implements ParentCategoryService {
     }
 
     @Override
-    public Set<ParentCategory> getAllParentCategoriesByBrandId(Long brandId) throws ResponseError {
-        Brand brand = brandRepository.findById(brandId)
-                .orElseThrow(() -> new ResponseError(
-                        "Brand not found with id: " + brandId,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Set<ParentCategory> getAllParentCategoriesByBrandId(Long brandId) throws CustomException {
+        Brand brand = brandService.getById(brandId);
         return parentCategoryRepository.getAllParentCategoryByBrandId(brand.getId());
     }
 }

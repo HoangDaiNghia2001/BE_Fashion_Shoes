@@ -99,6 +99,11 @@
             <version>1.5.5.Final</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Thymeleaf for Email Templates -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

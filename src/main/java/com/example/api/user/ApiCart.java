@@ -2,9 +2,7 @@ package com.example.api.user;
 
 import com.example.exception.CustomException;
 import com.example.request.CartRequest;
-import com.example.response.CartItemResponse;
-import com.example.response.Response;
-import com.example.response.ResponseData;
+import com.example.response.*;
 import com.example.service.CartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,7 +13,6 @@ import java.util.List;
 
 @RestController("cartOfUser")
 @RequestMapping("/api/user")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiCart {
     @Autowired
     private CartService cartService;
@@ -29,7 +26,7 @@ public class ApiCart {
         ResponseData<CartItemResponse> responseData = new ResponseData<>();
         responseData.setResults(cart);
         responseData.setMessage("Add cart item success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.CREATED.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
@@ -38,12 +35,12 @@ public class ApiCart {
     @PutMapping("/cart")
     public ResponseEntity<?> updateCartItem(@RequestParam("id") Long id,
                                             @RequestBody CartRequest cartRequest) throws CustomException {
-        CartItemResponse cart = cartService.updateCartItem(cartRequest, id);
+        CartItemResponse cart = cartService.updateCartItem(id, cartRequest);
 
         ResponseData<CartItemResponse> responseData = new ResponseData<>();
         responseData.setResults(cart);
         responseData.setMessage("Update cart item success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
@@ -51,31 +48,28 @@ public class ApiCart {
     // CALL SUCCESS
     @DeleteMapping("/cart")
     public ResponseEntity<?> deleteCartItem(@RequestParam("id") Long id) throws CustomException {
-        String message = cartService.deleteCartItem(id);
-
-        Response response = new Response();
-        response.setMessage(message);
-        response.setSuccess(true);
-
+        Response response = cartService.deleteCartItem(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/carts/{idCarts}")
     public ResponseEntity<?> deleteMultiCartItems(@PathVariable List<Long> idCarts) throws CustomException {
-        String delete = cartService.deleteMultiCartItem(idCarts);
-
-        Response response = new Response();
-        response.setMessage(delete);
-        response.setSuccess(true);
-
+        Response response = cartService.deleteMultiCartItem(idCarts);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @GetMapping("/cart/detail")
     public ResponseEntity<?> getCartDetailOfUser() throws CustomException {
-        return new ResponseEntity<>(cartService.getCartDetails(), HttpStatus.OK);
+        CartResponse cartResponse = cartService.getCartDetails();
+
+        ResponseData<CartResponse> responseData = new ResponseData<>();
+        responseData.setMessage("Get cart detail of user success !!!");
+        responseData.setResults(cartResponse);
+        responseData.setStatus(HttpStatus.OK.value());
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     // CALL SUCCESS
@@ -86,7 +80,7 @@ public class ApiCart {
         ResponseData<Integer> responseData = new ResponseData<>();
         responseData.setResults(total);
         responseData.setMessage("Count total cart item success !!!");
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }

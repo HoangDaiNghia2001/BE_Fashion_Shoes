@@ -36,4 +36,25 @@ public class MapStructConfig {
     public ProductMapper productMapper() {
         return Mappers.getMapper(ProductMapper.class);
     }
+
+    @Bean
+    public CartMapper cartMapper() {
+        return Mappers.getMapper(CartMapper.class);
+    }
+
+    @Bean
+    public OrderMapper orderMapper() {
+        return Mappers.getMapper(OrderMapper.class);
+    }
+
+    @Bean
+    public OrderLineMapper orderLineMapper() {
+        return Mappers.getMapper(OrderLineMapper.class);
+    }
+
+    @Bean
+    public CommentMapper commentMapper() {
+        return Mappers.getMapper(CommentMapper.class);
+    }
+
 }

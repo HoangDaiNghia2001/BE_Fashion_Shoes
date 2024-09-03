@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken,Long> {
     Optional <RefreshToken> findByRefreshTokenCode(String refreshTokenCode);
 
-    Optional<RefreshToken> deleteByRefreshTokenCode(String refreshTokenCode);
+    void deleteByRefreshTokenCode(String refreshTokenCode);
 
     @Modifying
     @Query("delete from RefreshToken r where r.expiryDate <= ?1")

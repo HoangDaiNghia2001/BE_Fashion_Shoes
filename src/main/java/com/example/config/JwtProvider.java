@@ -33,7 +33,7 @@ public class JwtProvider {
     }
 
     public ResponseCookie generateTokenCookie(String name, User user) {
-        String token = generateToken(user);
+        String token = this.generateToken(user);
 
         return ResponseCookie.from(name, token)
 //                .domain(".railway.app")
@@ -62,18 +62,16 @@ public class JwtProvider {
 
         if (tokenCookie != null) {
             return tokenCookie.getValue();
-        } else {
-            return null;
         }
+        return null;
     }
 
     public String getRefreshTokenCodeFromCookie(HttpServletRequest request, String name) {
         Cookie refreshToken = WebUtils.getCookie(request, name);
         if (refreshToken != null) {
             return refreshToken.getValue();
-        } else {
-            return null;
         }
+        return null;
     }
 
     public ResponseCookie cleanTokenCookie(String name) {

@@ -137,4 +137,22 @@ public class ProductRequest {
     public void setImageSecondaries(List<String> imageSecondaries) {
         this.imageSecondaries = imageSecondaries;
     }
+
+    @Override
+    public String toString() {
+        return "ProductRequest{" +
+                "name='" + name + '\'' +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", brandId=" + brandId +
+                ", parentCategoryId=" + parentCategoryId +
+                ", childCategoryId=" + childCategoryId +
+                ", discountedPercent=" + discountedPercent +
+                ", price=" + price +
+                ", color='" + color + '\'' +
+                ", sizes=" + sizes +
+                ", mainImageBase64='" + mainImageBase64 + '\'' +
+                ", imageSecondaries=" + imageSecondaries +
+                '}';
+    }
 }

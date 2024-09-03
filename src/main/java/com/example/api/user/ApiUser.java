@@ -2,12 +2,11 @@ package com.example.api.user;
 
 import com.example.config.JwtProvider;
 import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
 import com.example.request.PasswordRequest;
 import com.example.request.UserRequest;
 import com.example.response.Response;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.response.UserResponse;
 import com.example.service.RefreshTokenService;
 import com.example.service.implement.UserServiceImpl;
@@ -18,8 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
 
 @RestController("user")
 @RequestMapping("/api/user")
@@ -35,13 +32,12 @@ public class ApiUser {
 
     // CALL SUCCESS
     @PutMapping(value = "/update/profile")
-    public ResponseEntity<?> updateInformation(@RequestBody UserRequest userRequest) throws ResponseError {
+    public ResponseEntity<?> updateInformation(@RequestBody UserRequest userRequest) throws CustomException {
         UserResponse userResponse = userService.updateInformationUser(userRequest);
 
         ResponseData<UserResponse> response = new ResponseData<>();
         response.setMessage("Updated information success!!!");
-        response.setSuccess(true);
-        response.setStatus(HttpStatus.CREATED.value());
+        response.setStatus(HttpStatus.OK.value());
         response.setResults(userResponse);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -52,26 +48,25 @@ public class ApiUser {
     public ResponseEntity<?> userLogout() throws CustomException {
         // delete refresh token in database
         String refreshTokenCode = jwtProvider.getRefreshTokenCodeFromCookie(request, CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_USER);
-        refreshTokenService.deleteRefreshTokenByRefreshTokenCode(refreshTokenCode);
+        refreshTokenService.deleteRefreshToken(refreshTokenCode);
 
         // delete token and refresh token on cookie
-        ResponseCookie cookie = jwtProvider.cleanTokenCookie(CookieConstant.JWT_COOKIE_USER);
-        ResponseCookie refreshTokenCookie = jwtProvider.cleanRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_USER);
+        ResponseCookie cleanTokenCookie = jwtProvider.cleanTokenCookie(CookieConstant.JWT_COOKIE_USER);
+        ResponseCookie cleanRefreshTokenCodeCookie = jwtProvider.cleanRefreshTokenCodeCookie(CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_USER);
 
         Response response = new Response();
         response.setMessage("Logout success !!!");
-        response.setSuccess(true);
         response.setStatus(HttpStatus.OK.value());
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, cleanTokenCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, cleanRefreshTokenCodeCookie.toString())
                 .body(response);
     }
 
     // CALL SUCCESS
     @PutMapping("/password")
-    public ResponseEntity<?> changePassword(@RequestBody PasswordRequest passwordRequest) throws ResponseError {
+    public ResponseEntity<?> changePassword(@RequestBody PasswordRequest passwordRequest) throws CustomException {
         Response response = userService.changePasswordUser(passwordRequest);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

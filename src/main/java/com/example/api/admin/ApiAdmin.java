@@ -2,12 +2,11 @@ package com.example.api.admin;
 
 import com.example.config.JwtProvider;
 import com.example.constant.CookieConstant;
-import com.example.exception.CustomException;
 import com.example.request.PasswordRequest;
 import com.example.request.UserRequest;
 import com.example.response.Response;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.response.UserResponse;
 import com.example.service.RefreshTokenService;
 import com.example.service.implement.UserServiceImpl;
@@ -18,8 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
 
 
 @RestController("authOfAdmin")
@@ -36,13 +33,12 @@ public class ApiAdmin {
 
     // CALL SUCCESS
     @PutMapping(value = "/update/profile")
-    public ResponseEntity<?> updateInformation(@RequestBody UserRequest adminRequest) throws ResponseError {
+    public ResponseEntity<?> updateInformation(@RequestBody UserRequest adminRequest) throws CustomException {
         UserResponse adminResponse = userService.updateInformationAdmin(adminRequest);
 
         ResponseData<UserResponse> response = new ResponseData<>();
         response.setMessage("Updated information success!!!");
-        response.setSuccess(true);
-        response.setStatus(HttpStatus.CREATED.value());
+        response.setStatus(HttpStatus.OK.value());
         response.setResults(adminResponse);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -50,7 +46,7 @@ public class ApiAdmin {
 
     // CALL SUCCESS
     @PutMapping("/password")
-    public ResponseEntity<?> changePassword(@RequestBody PasswordRequest passwordRequest) throws ResponseError {
+    public ResponseEntity<?> changePassword(@RequestBody PasswordRequest passwordRequest) throws CustomException {
         Response response = userService.changePasswordAdmin(passwordRequest);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -60,7 +56,7 @@ public class ApiAdmin {
     public ResponseEntity<?> adminLogout() throws CustomException {
         // delete refresh token in database
         String refreshTokenCode = jwtProvider.getRefreshTokenCodeFromCookie(request, CookieConstant.JWT_REFRESH_TOKEN_CODE_COOKIE_ADMIN);
-        refreshTokenService.deleteRefreshTokenByRefreshTokenCode(refreshTokenCode);
+        refreshTokenService.deleteRefreshToken(refreshTokenCode);
 
         // delete token and refresh token on cookie
         ResponseCookie cookie = jwtProvider.cleanTokenCookie(CookieConstant.JWT_COOKIE_ADMIN);
@@ -68,7 +64,6 @@ public class ApiAdmin {
 
         Response response = new Response();
         response.setMessage("Logout success !!!");
-        response.setSuccess(true);
         response.setStatus(HttpStatus.OK.value());
 
         return ResponseEntity.ok()

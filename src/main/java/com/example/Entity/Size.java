@@ -3,6 +3,8 @@ package com.example.Entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
+import java.util.Objects;
+
 @Embeddable
 public class Size {
     @Column(name= "id")
@@ -45,5 +47,18 @@ public class Size {
         this.id = id;
         this.name = name;
         this.quantity = quantity;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Size size = (Size) o;
+        return Objects.equals(name, size.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 }

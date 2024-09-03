@@ -1,9 +1,9 @@
 package com.example.service.implement;
 
+import com.example.Entity.CustomUserDetails;
 import com.example.Entity.Role;
 import com.example.Entity.User;
 import com.example.config.JwtProvider;
-import com.example.constant.CookieConstant;
 import com.example.constant.RoleConstant;
 import com.example.exception.CustomException;
 import com.example.mapper.UserMapper;
@@ -12,9 +12,12 @@ import com.example.request.OtpRequest;
 import com.example.request.PasswordRequest;
 import com.example.request.ResetPasswordRequest;
 import com.example.request.UserRequest;
-import com.example.response.*;
+import com.example.response.ListUsersResponse;
+import com.example.response.Response;
+import com.example.response.TopFiveUsersBoughtTheMostResponse;
+import com.example.response.UserResponse;
+import com.example.service.EmailService;
 import com.example.service.UserService;
-import com.example.util.EmailUtil;
 import com.example.util.MethodUtils;
 import com.example.util.OTPUtil;
 import jakarta.mail.MessagingException;
@@ -23,13 +26,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.context.Context;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -46,10 +53,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private OTPUtil otpUtil;
     @Autowired
-    private EmailUtil emailUtil;
+    private EmailService emailService;
     @Autowired
     private UserMapper userMapper;
-
     @Autowired
     private MethodUtils methodUtils;
 
@@ -78,42 +84,73 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse findUserById(Long id) throws ResponseError {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                                "User not found with id: " + id,
-                                HttpStatus.NOT_FOUND.value()));
-        return userMapper.userToUserResponse(user);
+    public CustomUserDetails loadUserByUsername(String email) throws CustomException {
+        User user = this.findUserByEmail(email);
+
+        if(!user.isActive()){
+            throw new CustomException(
+                    "Your account has been disabled !!!",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
+
+        CustomUserDetails userDetails = new CustomUserDetails();
+        userDetails.setUser(user);
+
+        return userDetails;
     }
 
     @Override
-    public UserResponse findUserProfileByJwt(String token) throws ResponseError {
+    public Authentication authenticate(String email, String password) throws CustomException {
+        CustomUserDetails user = this.loadUserByUsername(email);
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new CustomException(
+                    "Password incorrect !!!",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
+
+        return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+    }
+
+    @Override
+    public User getById(Long id) throws CustomException {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "User not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()));
+        return user;
+    }
+
+    @Override
+    public UserResponse findUserProfileByJwt(String token) throws CustomException {
         String email = (String) jwtProvider.getClaimsFormToken(token).get("email");
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseError(
-                                "User not found with email: " + email,
-                                HttpStatus.NOT_FOUND.value()));
+                .orElseThrow(() -> new CustomException(
+                        "User not found with email: " + email,
+                        HttpStatus.NOT_FOUND.value()));
         return userMapper.userToUserResponse(user);
     }
 
     @Override
-    public UserResponse findUserByEmail(String email) throws ResponseError {
+    public User findUserByEmail(String email) throws CustomException {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseError(
-                                "User not found with email: " + email,
-                                HttpStatus.NOT_FOUND.value()
-                        ));
-        return userMapper.userToUserResponse(user);
+                .orElseThrow(() -> new CustomException(
+                        "User not found with email: " + email,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return user;
     }
 
     @Override
     @Transactional
-    public UserResponse registerUser(UserRequest userRequest) throws ResponseError {
+    public UserResponse registerUser(UserRequest userRequest) throws CustomException {
         // check user is already exist
         Optional<User> userExist = userRepository.findByEmail(userRequest.getEmail());
 
-        if(userExist.isPresent()){
-            throw new ResponseError(
+        if (userExist.isPresent()) {
+            throw new CustomException(
                     "User is already exist with email: " + userRequest.getEmail(),
                     HttpStatus.CONFLICT.value()
             );
@@ -131,11 +168,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward,
-                                               int pageIndex, int pageSize) throws ResponseError {
+    public ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, boolean inactive,
+                                               int pageIndex, int pageSize) throws CustomException {
         String emailPresent = methodUtils.getEmailFromTokenOfAdmin();
 
-        List<User> users = userRepository.filterUserByAdmin(code, email, province, district, ward, emailPresent);
+        List<User> users = userRepository.filterUserByAdmin(code, email, province, district, ward, emailPresent, inactive);
 
         Pageable pageable = PageRequest.of(pageIndex - 1, pageSize);
         int startIndex = (int) pageable.getOffset();
@@ -165,13 +202,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateInformation(UserRequest userRequest, String email) throws ResponseError {
+    public UserResponse updateInformation(UserRequest userRequest, String email) throws CustomException {
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseError(
-                        "User not found with email: " + email,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        User user = this.findUserByEmail(email);
 
         // Map from DTO to Entity, updating only fields available in DTO
         userMapper.userRequestToUser(userRequest, user);
@@ -183,7 +216,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserResponse updateInformationUser(UserRequest userRequest) throws ResponseError {
+    public UserResponse updateInformationUser(UserRequest userRequest) throws CustomException {
         String email = methodUtils.getEmailFromTokenOfUser();
 
         return updateInformation(userRequest, email);
@@ -191,25 +224,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserResponse updateInformationAdmin(UserRequest adminRequest) throws ResponseError {
+    public UserResponse updateInformationAdmin(UserRequest adminRequest) throws CustomException {
         String email = methodUtils.getEmailFromTokenOfAdmin();
 
         return updateInformation(adminRequest, email);
     }
 
     @Override
-    public Response changePassword(PasswordRequest passwordRequest, String email) throws ResponseError {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseError(
-                        "User not found with email: " + email,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Response changePassword(PasswordRequest passwordRequest, String email) throws CustomException {
+        User user = this.findUserByEmail(email);
 
         if (!passwordEncoder.matches(passwordRequest.getOldPassword(), user.getPassword())) {
-            throw new ResponseError("Old password does not match !!!", HttpStatus.BAD_REQUEST.value());
+            throw new CustomException("Old password does not match !!!", HttpStatus.BAD_REQUEST.value());
         }
         user.setPassword(passwordEncoder.encode(passwordRequest.getNewPassword()));
-        user.setCreatedBy(email);
+        user.setUpdateBy(email);
 
         userRepository.save(user);
 
@@ -221,7 +250,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Response changePasswordUser(PasswordRequest passwordRequest) throws ResponseError {
+    public Response changePasswordUser(PasswordRequest passwordRequest) throws CustomException {
         String email = methodUtils.getEmailFromTokenOfUser();
 
         return changePassword(passwordRequest, email);
@@ -229,31 +258,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Response changePasswordAdmin(PasswordRequest passwordRequest) throws ResponseError {
+    public Response changePasswordAdmin(PasswordRequest passwordRequest) throws CustomException {
         String email = methodUtils.getEmailFromTokenOfAdmin();
 
         return changePassword(passwordRequest, email);
     }
 
     @Override
-    public String sendOTPCode(String email) throws ResponseError {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseError(
-                        "User not found with email: " + email,
-                        HttpStatus.NOT_FOUND.value()
-                ));
-        return String.valueOf(otpUtil.generateOTP());
-    }
-
-    @Override
-    public Response validateOtp(OtpRequest otpRequest) throws ResponseError {
+    public Response validateOtp(OtpRequest otpRequest) throws CustomException {
         String otpCookie = otpUtil.getOtpFromCookie(request);
 
         if (otpCookie == null) {
-            throw new ResponseError("OTP on cookie is empty !!!", HttpStatus.PRECONDITION_FAILED.value());
+            throw new CustomException("OTP on cookie is expired !!!", HttpStatus.PRECONDITION_FAILED.value());
         }
         if (!otpCookie.equals(otpRequest.getOtp())) {
-            throw new ResponseError("The OTP code incorrectly !!!", HttpStatus.CONFLICT.value());
+            throw new CustomException("The OTP code incorrectly !!!", HttpStatus.CONFLICT.value());
         }
         Response response = new Response();
         response.setMessage("Validate OTP success !!!");
@@ -263,18 +282,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws ResponseError {
-        String emailCookie = emailUtil.getEmailCookie(request);
+    public Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws CustomException {
+        String emailCookie = emailService.getEmailCookie(request);
 
         if (emailCookie == null) {
-            throw new ResponseError("Email on cookie is empty !!!", HttpStatus.PRECONDITION_FAILED.value());
+            throw new CustomException("Email on cookie is empty !!!", HttpStatus.PRECONDITION_FAILED.value());
         }
 
-        User user = userRepository.findByEmail(emailCookie)
-                .orElseThrow(() -> new ResponseError(
-                        "Email not found in database !!!",
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        User user = this.findUserByEmail(emailCookie);
 
         user.setPassword(passwordEncoder.encode(resetPasswordRequest.getPassword()));
         userRepository.save(user);
@@ -298,11 +313,11 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserResponse createUserByAdmin(UserRequest userRequest) throws ResponseError, MessagingException {
+    public UserResponse createUserByAdmin(UserRequest userRequest) throws CustomException, MessagingException {
         Optional<User> userExist = userRepository.findByEmail(userRequest.getEmail());
 
-        if(userExist.isPresent()){
-            throw new ResponseError(
+        if (userExist.isPresent()) {
+            throw new CustomException(
                     "User is already exist with email: " + userRequest.getEmail(),
                     HttpStatus.CONFLICT.value());
         }
@@ -315,28 +330,30 @@ public class UserServiceImpl implements UserService {
             Role role = roleService.findByName(roleName);
             user.getRoles().add(role);
         }
-        String password = generatePassword();
+        String password = this.generatePassword();
         user.setPassword(passwordEncoder.encode(password));
-        user.setCode(generateUniqueCode());
+        user.setCode(this.generateUniqueCode());
         user.setGender(userRequest.getGender().toUpperCase());
         user.setCreatedBy(emailAdmin);
         user = userRepository.save(user);
 
-        emailUtil.sendPassWordEmail(userRequest.getEmail(), password, user.getLastName() + " " + user.getFirstName());
+        // send email to the new user
+        Context context = new Context();
+        context.setVariable("firstName", user.getFirstName());
+        context.setVariable("newPassword", password);
+
+        emailService.sendEmail(user.getEmail(), "Welcome! Your Account Has Been Created Successfully", "first_password_email", context);
 
         return userMapper.userToUserResponse(user);
     }
 
     @Transactional
     @Override
-    public UserResponse updateUserByAdmin(long id, UserRequest userRequest) throws ResponseError, MessagingException {
+    public UserResponse updateUserByAdmin(long id, UserRequest userRequest) throws CustomException, MessagingException {
         String emailAdmin = methodUtils.getEmailFromTokenOfAdmin();
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "User not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+        User user = this.getById(id);
+
         // Map from DTO to Entity, updating only fields available in DTO
         userMapper.userRequestToUser(userRequest, user);
         user.getRoles().clear();
@@ -348,20 +365,36 @@ public class UserServiceImpl implements UserService {
         user.setUpdateBy(emailAdmin);
 
         user = userRepository.save(user);
-        emailUtil.sendNotificationEmail(user.getEmail(), user.getLastName() + " " + user.getFirstName());
+
+        Context context = new Context();
+        context.setVariable("firstName", user.getFirstName());
+        context.setVariable("notification", "Your information has been updated");
+        context.setVariable("description", "We have successfully updated your account information. If you did not request this change or if you have any concerns, please reach out to our support team for assistance.");
+
+        emailService.sendEmail(user.getEmail(),"Your Account Information Has Been Successfully Updated","notification_email", context);
 
         return userMapper.userToUserResponse(user);
     }
 
     @Transactional
     @Override
-    public Response deleteUserByAdmin(long id) throws ResponseError, MessagingException {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "User not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
-        emailUtil.sendNotificationEmailDeleteUser(user.getEmail(), user.getLastName() + " " + user.getFirstName());
+    public Response deleteUserByAdmin(long id) throws CustomException, MessagingException {
+        User user = this.getById(id);
+
+        if(user.isActive()){
+            throw new CustomException(
+                    "Users should be disabled before being permanently deleted !!!",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
+        // send email to the user
+        Context context = new Context();
+        context.setVariable("firstName", user.getFirstName());
+        context.setVariable("notification", "Your account has been deactivated");
+        context.setVariable("description", "We regret to inform you that your account has been permanently deleted. This action is irreversible, and all your data has been removed from our system. If you have any questions or need further assistance, please contact our support team.");
+
+        emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Disabled","notification_email", context);
+
         userRepository.delete(user);
         Response response = new Response();
         response.setMessage("Delete user success !!!");
@@ -372,24 +405,77 @@ public class UserServiceImpl implements UserService {
 
     @Transactional
     @Override
-    public Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException {
-        List<Long> idsMiss = new ArrayList<>();
-        for (long id : ids) {
-            Optional<User> user = userRepository.findById(id);
-            if (user.isPresent()) {
-                emailUtil.sendNotificationEmailDeleteUser(user.get().getEmail(), user.get().getLastName() + " " + user.get().getFirstName());
-                userRepository.delete(user.get());
-            } else {
-                idsMiss.add(id);
+    public Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException, CustomException {
+        // lấy ra danh sách user theo danh sách ids
+        List<User> usersDelete = userRepository.findAllById(ids);
+
+        // lấy ra danh sách ids theo list user trên
+        List<Long> idsUserDelete = usersDelete.stream().map(User::getId).collect(Collectors.toList());
+
+        // lọc ra những id không có user
+        List<Long> idsMiss = ids.stream().filter(id -> !idsUserDelete.contains(id)).collect(Collectors.toList());
+
+        // send email to the user
+        Context context = new Context();
+        context.setVariable("notification", "Your account has been deactivated");
+        context.setVariable("description", "We regret to inform you that your account has been permanently deleted. This action is irreversible, and all your data has been removed from our system. If you have any questions or need further assistance, please contact our support team.");
+
+        for(User user : usersDelete){
+            if (user.isActive()){
+                throw new CustomException(
+                        "Users " + user.getEmail() + " should be disabled before being permanently deleted !!!",
+                        HttpStatus.BAD_REQUEST.value()
+                );
             }
+
+            context.setVariable("firstName", user.getFirstName());
+            emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Disabled","notification_email", context);
+
+            // delete user
+            userRepository.delete(user);
         }
+
+        String message = idsMiss.isEmpty() ? "Delete some users success !!!"
+                : "Delete some users success, but not found some ids: " + idsMiss.toString() + " in list !!!";
         Response response = new Response();
-        if (idsMiss.isEmpty()) {
-            response.setMessage("Delete some users success !!!");
-        } else {
-            response.setMessage("Delete some users success, but not found some ids: " + idsMiss.toString() + " in list !!!");
-        }
         response.setStatus(HttpStatus.OK.value());
+        response.setMessage(message);
+
+        return response;
+    }
+
+    @Override
+    public Response deactivateUser(Long id) throws CustomException {
+        User user = this.getById(id);
+        user.setActive(false);
+        userRepository.save(user);
+
+        Context context = new Context();
+        context.setVariable("firstName", user.getFirstName());
+        context.setVariable("notification", "Your account has been deactivated");
+        context.setVariable("description", "We regret to inform you that your account has been deactivated due to inactivity or a violation of our terms of service. If you believe this is a mistake or if you would like to discuss this further, please contact our support team.");
+
+        Response response = new Response();
+        response.setMessage("Deactivate user successfully !!!");
+        response.setStatus(HttpStatus.OK.value());
+
+        return response;
+    }
+
+    @Override
+    public Response reactivateUser(Long id) throws CustomException {
+        User user = this.getById(id);
+        user.setActive(true);
+        userRepository.save(user);
+
+        Context context = new Context();
+        context.setVariable("firstName", user.getFirstName());
+        context.setVariable("notification", "Your account has been reactivated");
+        context.setVariable("description", "We are pleased to inform you that your account has been reactivated. You can now access all the features and services. If you encounter any issues or have any questions, please feel free to contact our support team.");
+        Response response = new Response();
+        response.setMessage("Activate user successfully !!!");
+        response.setStatus(HttpStatus.OK.value());
+
         return response;
     }
 }

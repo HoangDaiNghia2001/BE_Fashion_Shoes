@@ -24,6 +24,7 @@ public class User extends BaseEntity {
     @Column(name = "email", unique = true)
     private String email;
 
+    @JsonIgnore
     @Column(name = "password")
     private String password;
 
@@ -47,6 +48,9 @@ public class User extends BaseEntity {
 
     @Column(name = "avatar_base64", columnDefinition = "LONGTEXT")
     private String avatarBase64;
+
+    @Column(name = "active")
+    private boolean active = true;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_role",
@@ -204,14 +208,21 @@ public class User extends BaseEntity {
         this.avatarBase64 = avatarBase64;
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public User() {
     }
 
-    public User(String code, String firstName, String lastName, String email,
-                String password, String gender, String mobile, String address,
-                String province, String district, String ward, String avatarBase64,
-                Set<Role> roles, List<Cart> carts, List<RefreshToken> refreshTokens,
-                List<Order> orders, Set<Comment> comments) {
+    public User(String code, String firstName, String lastName, String email, String password,
+                String gender, String mobile, String address, String province, String district,
+                String ward, String avatarBase64, boolean active, Set<Role> roles, List<Cart> carts,
+                List<RefreshToken> refreshTokens, List<Order> orders, Set<Comment> comments) {
         this.code = code;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -224,6 +235,7 @@ public class User extends BaseEntity {
         this.district = district;
         this.ward = ward;
         this.avatarBase64 = avatarBase64;
+        this.active = active;
         this.roles = roles;
         this.carts = carts;
         this.refreshTokens = refreshTokens;

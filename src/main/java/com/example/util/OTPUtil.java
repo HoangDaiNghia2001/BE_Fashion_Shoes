@@ -27,7 +27,7 @@ public class OTPUtil {
         return ResponseCookie.from(CookieConstant.OTP_COOKIE, otp)
 //                .domain(".railway.app")
                 .path("/")
-                .maxAge(10 * 60)
+                .maxAge(5 * 60)
                 .httpOnly(true)
                 .secure(true)
 //                .sameSite("None")

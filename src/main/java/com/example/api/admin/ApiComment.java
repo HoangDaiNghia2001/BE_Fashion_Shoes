@@ -1,8 +1,8 @@
 package com.example.api.admin;
 
 import com.example.Entity.Comment;
-import com.example.exception.CustomException;
 import com.example.response.Response;
+import com.example.exception.CustomException;
 import com.example.service.implement.CommentServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -13,12 +13,12 @@ import java.util.List;
 
 @RestController("commentOfAdmin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiComment {
     @Autowired
     private CommentServiceImpl commentService;
 
     @GetMapping("/comment")
+    // thêm phần filter theo thông tin của user
     public ResponseEntity<?> getAllComment(@RequestParam("pageIndex")int pageIndex, @RequestParam("pageSize")int pageSize){
         List<Comment> comments = commentService.getAllComment(pageIndex,pageSize);
 
@@ -33,12 +33,7 @@ public class ApiComment {
 
     @DeleteMapping("/comment")
     public ResponseEntity<?> deleteComment(@RequestParam("id")Long id) throws CustomException {
-        String message = commentService.deleteCommentByAdmin(id);
-
-        Response response = new Response();
-        response.setSuccess(true);
-        response.setMessage(message);
-
+        Response response = commentService.deleteCommentByAdmin(id);
         return new ResponseEntity<>(response,HttpStatus.OK);
     }
 }

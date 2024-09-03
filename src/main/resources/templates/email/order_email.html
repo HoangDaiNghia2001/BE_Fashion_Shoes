@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #b8181e;
+            padding: 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 20px;
+            border-left: 1px solid #f4f4f4;
+            border-right: 1px solid #f4f4f4;
+        }
+        .order-details p {
+            margin: 5px 0;
+        }
+        .order-summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .order-summary th,
+        .order-summary td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .total-label {
+            font-weight: bold;
+        }
+        .total-amount {
+            text-align: center;
+            color: #c91f28;
+        }
+        .footer {
+            padding: 10px;
+            text-align: center;
+            background-color: #f5f5f5;
+            font-size: 12px;
+            color: #999999;
+        }
+        .signature{
+            font-style: italic;
+            font-weight: 600;
+        }
+        .information{
+            width: 100%;
+            margin: 15px 0px;
+            padding: 0px 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 th:if="${orderCancelled == null}">
+                Success! Your Order [[${orderCode}]] is [[${orderStatus}]]
+            </h2>
+            <h2 th:unless="${orderCancelled == null}">
+                OOP! Your Order [[${orderCode}]] Has Been Cancelled
+            </h2>
+        </div>
+        <div class="content">
+            <p>Dear [[${fullName}]],</p>
+            <p th:if="${orderCancelled == null}">Thank you for shopping with us! We are excited to inform you that your order has been successfully "[[${orderStatus}]]". Below are the details of your order:</p>
+            <p th:unless="${orderCancelled == null}">We regret to inform you that your order has been cancelled by the shop. This action is final, and the items in your order have been removed from our system. If you have any questions or need further assistance, please contact our support team.</p>
+
+            <h2 style="text-align: center;">Order Summary</h2>
+            <table class="order-summary">
+                <thead>
+                <tr>
+                    <th style="text-align: left;">Product</th>
+                    <th>Size</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="line : ${orderLines}">
+                    <td style="text-align: left;">[[${line.nameProduct}]]</td>
+                    <td>[[${line.size}]]</td>
+                    <td>[[${line.quantity}]]</td>
+                    <td style="text-align: right">[[${line.totalPrice}]]<sup>vnđ</sup></td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="total-label" style="text-align: left;">Shipping Fee</td>
+                    <td class="total-amount" style="text-align: right">[[${feeShipping}]]<sup th:if="${feeShipping != 'Free'}" th:text="'vnđ'"></sup></td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="total-label" style="text-align: left;">Total Amount</td>
+                    <td class="total-amount" style="text-align: right">[[${totalAmount}]]<sup>vnđ</sup></td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="information">
+                <span>Order Date:</span>
+                <span style="font-weight: bold; float: right; padding-right: 18px;">[[${orderDate}]]</span>
+            </div>
+            <div class="information">
+                <span>Phone Number:</span>
+                <span style="font-weight: bold; float: right; padding-right: 18px;">[[${phoneNumber}]]</span>
+            </div>
+            <div class="information">
+                <span>Payment Method:</span>
+                <span style="font-weight: bold; float: right; padding-right: 18px;">[[${paymentMethod}]]</span>
+            </div>
+            <div class="information">
+                <span>Pay:</span>
+                <span style="font-weight: bold; float: right; padding-right: 18px;">[[${pay}]]</span>
+            </div>
+            <div class="information">
+                <span>Order Status:</span>
+                <span style="font-weight: bold; float: right; padding-right: 18px;">[[${orderStatus}]]</span>
+            </div>
+        </div>
+        <div class="footer">
+            <p>We appreciate your business and look forward to serving you again!</p>
+            <p class="signature">Fashion Shoes</p>
+        </div>
+    </div>
+    <p>If you have any questions or need further assistance, please do not hesitate to contact us at <a href="mailto:manager.fashionshoes@gmail.com">manager.fashionshoes@gmail.com</a>.</p>
+</body>
+</html>

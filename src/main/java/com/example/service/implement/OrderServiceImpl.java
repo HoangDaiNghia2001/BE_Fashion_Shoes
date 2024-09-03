@@ -1,33 +1,39 @@
 package com.example.service.implement;
 
 import com.example.Entity.*;
-import com.example.config.JwtProvider;
 import com.example.config.VNPayConfig;
-import com.example.constant.CookieConstant;
 import com.example.constant.OrderConstant;
 import com.example.exception.CustomException;
+import com.example.mapper.OrderLineMapper;
+import com.example.mapper.OrderMapper;
 import com.example.repository.*;
-import com.example.request.OrderProductQuantityRequest;
+import com.example.request.OrderLineRequest;
 import com.example.request.OrderRequest;
-import com.example.request.OrderUpdateRequest;
 import com.example.response.*;
+import com.example.service.EmailService;
 import com.example.service.OrderService;
+import com.example.service.ProductService;
 import com.example.service.UserService;
-import com.example.util.EmailUtil;
+import com.example.util.MethodUtils;
 import jakarta.mail.MessagingException;
-import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.context.Context;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,120 +44,216 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private OrderLineRepository orderLineRepository;
     @Autowired
-    private JwtProvider jwtProvider;
-    @Autowired
     private UserService userService;
     @Autowired
-    private HttpServletRequest request;
+    private ProductService productService;
     @Autowired
     private ProductRepository productRepository;
     @Autowired
     private CartRepository cartRepository;
     @Autowired
     private VNPayRepository vnPayRepository;
-
     @Autowired
-    private EmailUtil emailUtil;
+    private MethodUtils methodUtils;
+    @Autowired
+    private EmailService emailService;
+    @Autowired
+    private OrderMapper orderMapper;
+    @Autowired
+    private OrderLineMapper orderLineMapper;
+
+    private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
 
     private String generateUniqueCode() {
         String code;
         Order existingOrder;
         do {
             String uuid = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 6);
-            code = LocalDate.now().toString().replaceAll("-","") + "_" + uuid;
+            code = LocalDate.now().toString().replaceAll("-", "") + "_" + uuid;
             existingOrder = orderRepository.findByCode(code);
         } while (existingOrder != null);
 
         return code.toUpperCase();
     }
 
+    // kiểm tra xem product id, size có tồn tại trong giỏ hàng của user trong db hay không và số lượng request có phù hợp với số lượng hàng trong kho k
+    private boolean checkValidOrderLineRequest(List<OrderLineRequest> orderLineRequests,
+                                               List<Cart> cartOfUser) throws CustomException {
+        List<Boolean> matchingCartItems = new ArrayList<>();
+        orderLineRequests.forEach(o -> {
+            matchingCartItems.add(cartOfUser.stream().anyMatch(c -> (c.getProduct().getId().equals(o.getProductId()) &&
+                    c.getSize() == o.getSize())));
+        });
+
+        // kiểm tra xem product id và size name của mỗi OrderLineRequest có tồn tại trong giỏ hàng của User hay không
+        boolean checkNotMatching = matchingCartItems.stream().anyMatch(value -> !value);
+        if (checkNotMatching) {
+            throw new CustomException(
+                    "Some order line items are not in the user's shopping cart !!!",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
+
+        // kiểm tra số lượng request của OrderLineItem có phù hợp với trong kho hay không
+        for (OrderLineRequest o : orderLineRequests) {
+            Product product = productService.getById(o.getProductId());
+            for (Size s : product.getSizes()) {
+                if (s.getName() == o.getSize() && s.getQuantity() < o.getQuantity()) {
+                    throw new CustomException(
+                            "Product: " + product.getName() + " with size: " + o.getSize() + " insufficient quantity required !!!",
+                            HttpStatus.BAD_REQUEST.value()
+                    );
+                }
+            }
+        }
+        return true;
+    }
+
+    private Order createOrder(OrderRequest orderRequest, User user) {
+        double price = orderRequest.getOrderLineRequests().stream()
+                .mapToDouble(OrderLineRequest::getTotalPrice)
+                .sum();
+
+        Order order = new Order();
+        orderMapper.orderRequestToOrder(orderRequest, order);
+        order.setCode(this.generateUniqueCode());
+        order.setUser(user);
+        order.setStatus(OrderConstant.ORDER_PENDING);
+        order.setCreatedBy(user.getEmail());
+        order.setTotalPrice(price + orderRequest.getTransportFee());
+        order.setOrderDate(LocalDateTime.now());
+        order.setPay(OrderConstant.ORDER_UNPAID);
+
+        return orderRepository.save(order);
+    }
+
+    private void createOrderLine(List<OrderLineRequest> orderLineRequests, Order order, User user) throws CustomException {
+        for (OrderLineRequest orderLineRequest : orderLineRequests) {
+            Product product = productService.getById(orderLineRequest.getProductId());
+
+            OrderLine orderLine = new OrderLine();
+            orderLineMapper.orderLineRequestToOrderLine(orderLineRequest, orderLine);
+            orderLine.setOrder(order);
+            orderLine.setProduct(product);
+            orderLine.setCreatedBy(user.getEmail());
+
+            orderLineRepository.save(orderLine);
+        }
+    }
+
+    // xóa các cart item tương ứng trong db khi order thành công
+    private void deleteCartItemByOrder(List<Cart> cartOfUser,
+                                       List<OrderLineRequest> orderLineRequests) {
+        cartOfUser.forEach(c -> {
+            boolean check = orderLineRequests.stream().anyMatch(o -> (o.getSize() == c.getSize() &&
+                    o.getProductId().equals(c.getProduct().getId())));
+            if (check) {
+                cartRepository.delete(c);
+            }
+        });
+    }
+
+    private OrderResponse generateOrderResponse(Order order) throws CustomException {
+        DecimalFormat decimalFormat = new DecimalFormat("#,###");
+        OrderResponse orderResponse = orderMapper.orderToOrderResponse(order);
+        orderResponse.setEmail(order.getCreatedBy());
+
+        List<OrderLineResponse> orderLineResponseList = new ArrayList<>();
+
+        List<OrderLine> orderLines = orderLineRepository.findByOrderId(order.getId());
+
+        for (OrderLine orderLine : orderLines) {
+            Product product = productService.getById(orderLine.getProduct().getId());
+
+            OrderLineResponse orderLineResponse = new OrderLineResponse();
+
+            orderLineResponse.setProductId(product.getId());
+            orderLineResponse.setCodeProduct(product.getCode());
+            orderLineResponse.setBrand(product.getBrandProduct().getName());
+            orderLineResponse.setMainImageBase64(product.getMainImageBase64());
+            orderLineResponse.setQuantity(orderLine.getQuantity());
+            orderLineResponse.setSize(orderLine.getSize());
+            orderLineResponse.setNameProduct(product.getName());
+            orderLineResponse.setTotalPrice(decimalFormat.format(Math.round(orderLine.getTotalPrice())));
+
+            orderLineResponseList.add(orderLineResponse);
+        }
+
+        orderResponse.setOrderLines(orderLineResponseList);
+
+        return orderResponse;
+    }
+
+    private List<OrderResponse> generateOrderListToOrderResponseList(List<Order> orders) throws CustomException {
+        List<OrderResponse> orderResponseList = new ArrayList<>();
+
+        for (Order order : orders) {
+            OrderResponse orderResponse = this.generateOrderResponse(order);
+            orderResponseList.add(orderResponse);
+        }
+        return orderResponseList;
+    }
+
+    private Context prepareOrderContext(Order order) throws CustomException {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DecimalFormat decimalFormat = new DecimalFormat("#,###");
+
+        OrderResponse orderResponse = this.generateOrderResponse(order);
+        Context context = new Context();
+        context.setVariable("orderCode", orderResponse.getCode());
+        context.setVariable("orderStatus", orderResponse.getStatus());
+        context.setVariable("fullName", orderResponse.getFullName());
+        context.setVariable("orderLines", orderResponse.getOrderLines());
+        context.setVariable("feeShipping", orderResponse.getTransportFee() != 0 ? decimalFormat.format(Math.round( orderResponse.getTransportFee())) : "Free");
+        context.setVariable("totalAmount", decimalFormat.format(Math.round(orderResponse.getTotalPrice())));
+        context.setVariable("pay", orderResponse.getPay());
+        context.setVariable("phoneNumber", orderResponse.getPhoneNumber());
+        context.setVariable("paymentMethod", orderResponse.getPaymentMethod());
+        context.setVariable("orderDate", orderResponse.getOrderDate().format(formatter));
+
+        return context;
+    }
+
+    @Override
+    public Order getById(Long id) throws CustomException {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Order not found with id: " + id,
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return order;
+    }
+
     @Override
     @Transactional
-    public void placeOrderCOD(OrderRequest orderRequest) throws CustomException, MessagingException {
-        // nếu số lượng sản phẩm order nhiều hơn số lượng sản phẩm có trong kho thì
-        // nhân viên phải liên hệ khách hàng để thỏa thuận lại về đơn hàng
-
+    public void placeOrderCOD(OrderRequest orderRequest) throws CustomException{
+        // kiểm tra só lượng sản phẩm trong order line so với sản phẩm còn trong kho
         // do mua hàng thông qua cart nên phải check xem các sản phẩm request có đang nằm trong giỏ hàng của user không !!!
         // sau khi đặt hàng thành công thì sẽ xóa các sản phẩm đã đặt ở trong giỏ hàng của user
 
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        User user = userService.findUserProfileByJwt(token);
+        String emailUser = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(emailUser);
 
-        List<OrderProductQuantityRequest> orderProductQuantityRequests = orderRequest.getProductQuantities();
+        List<OrderLineRequest> orderLineRequests = orderRequest.getOrderLineRequests();
 
         List<Cart> cartOfUser = cartRepository.findByUserIdOrderByIdDesc(user.getId());
 
-        List<Boolean> checkExists = new ArrayList<>();
+        boolean checkValid = this.checkValidOrderLineRequest(orderLineRequests, cartOfUser);
 
-        // kiem tra xem san pham request co dang nam trong gio hang hay khong
-        orderProductQuantityRequests.forEach(p -> {
-            checkExists.add(cartOfUser.stream().anyMatch(c -> (Objects.equals(c.getProduct().getId(), p.getProductId()) && (c.getSize() == p.getSize()))));
-        });
+        if (checkValid) {
+            // create order
+            Order order = this.createOrder(orderRequest, user);
 
-        boolean existItem = checkExists.stream().anyMatch(exist -> !exist);
+            // create order line
+            this.createOrderLine(orderLineRequests, order, user);
 
-        if (existItem) {
-            throw new CustomException("Some products not exits in your cart, Please check again and follow the correct steps !!!");
-        }
-
-        double totalPrice = 0;
-        // create order
-        Order order = new Order();
-
-        order.setCode(generateUniqueCode());
-        order.setAddress(orderRequest.getAddress());
-        order.setDistrict(orderRequest.getDistrict());
-        order.setProvince(orderRequest.getProvince());
-        order.setWard(orderRequest.getWard());
-        order.setFullName(orderRequest.getFullName());
-        order.setUser(user);
-        order.setAlternatePhoneNumber(orderRequest.getAlternatePhoneNumber());
-        order.setPhoneNumber(orderRequest.getPhoneNumber());
-        order.setStatus(OrderConstant.ORDER_PENDING);
-        order.setTransportFee(orderRequest.getTransportFee());
-        order.setCreatedBy(user.getEmail());
-        for (OrderProductQuantityRequest p : orderProductQuantityRequests) {
-            totalPrice += p.getTotalPrice();
-        }
-        order.setTotalPrice(totalPrice + order.getTransportFee());
-        order.setNote(orderRequest.getNote());
-        order.setPaymentMethod(orderRequest.getPaymentMethod());
-        order.setOrderDate(LocalDateTime.now());
-        order.setPay(OrderConstant.ORDER_UNPAID);
-        order = orderRepository.save(order); // => order success
-
-        // create order line
-        for (OrderProductQuantityRequest productOrder : orderProductQuantityRequests) {
-            Optional<Product> product = productRepository.findById(productOrder.getProductId());
-
-            if (!product.isPresent()) {
-                throw new CustomException("Product not found !!!");
-            }
-            OrderLine orderLine = new OrderLine();
-
-            orderLine.setOrder(order);
-            orderLine.setProduct(product.get());
-            orderLine.setQuantity(productOrder.getQuantity());
-            orderLine.setSize(productOrder.getSize());
-            orderLine.setCreatedBy(user.getEmail());
-            orderLine.setTotalPrice(productOrder.getTotalPrice());
-
-            orderLineRepository.save(orderLine);
-
-            // delete product in cart of user
-            cartOfUser.forEach(c -> {
-                boolean check = orderProductQuantityRequests.stream().anyMatch(p -> (p.getSize() == c.getSize() && Objects.equals(p.getProductId(), c.getProduct().getId())));
-                if (check) {
-                    cartRepository.delete(c);
-                }
-            });
-
-            OrderResponse orderResponse = getOrderNewestByEmail();
-            emailUtil.sendOrderEmail(orderResponse);
+            // xóa các cart item tương ứng
+            this.deleteCartItemByOrder(cartOfUser, orderLineRequests);
         }
     }
 
     @Override
+    @Transactional
     public String placeOrderVnPay(long totalPrice, String orderInfo, String orderId) {
 
         String vnp_TxnRef = VNPayConfig.getRandomNumber(8);
@@ -224,81 +326,24 @@ public class OrderServiceImpl implements OrderService {
         return VNPayConfig.vnp_PayUrl + "?" + queryUrl;
     }
 
-    private OrderResponse generateOrderResponse(Order order){
-        OrderResponse orderResponse = new OrderResponse();
-
-        orderResponse.setId(order.getId());
-        orderResponse.setCode(order.getCode());
-        orderResponse.setFullName(order.getFullName());
-        orderResponse.setEmail(order.getCreatedBy());
-        orderResponse.setPay(order.getPay());
-        orderResponse.setPhoneNumber(order.getPhoneNumber());
-        orderResponse.setAlternatePhone(order.getAlternatePhoneNumber());
-        orderResponse.setAddress(order.getAddress());
-        orderResponse.setWard(order.getWard());
-        orderResponse.setDistrict(order.getDistrict());
-        orderResponse.setProvince(order.getProvince());
-        orderResponse.setNotes(order.getNote());
-        orderResponse.setDeliveryDate(order.getDeliveryDate());
-        orderResponse.setReceivingDate(order.getReceivingDate());
-        orderResponse.setUpdateAtUser(order.getUpdateAtUser());
-        orderResponse.setUpdateByUser(order.getUpdateByUser());
-        orderResponse.setPaymentMethod(order.getPaymentMethod());
-        orderResponse.setStatusOrder(order.getStatus());
-        orderResponse.setTotalPrice(order.getTotalPrice());
-        orderResponse.setTransportFee(order.getTransportFee());
-        orderResponse.setOrderDate(order.getOrderDate());
-        List<OrderLineResponse> orderLineResponseList = new ArrayList<>();
-
-        List<OrderLine> orderLines = orderLineRepository.findByOrderId(order.getId());
-
-        orderLines.forEach(orderLine -> {
-            Optional<Product> product = productRepository.findById(orderLine.getProduct().getId());
-
-            OrderLineResponse orderLineResponse = new OrderLineResponse();
-
-            orderLineResponse.setProductId(product.get().getId());
-            orderLineResponse.setCodeProduct(product.get().getCode());
-            orderLineResponse.setBrand(product.get().getBrandProduct().getName());
-            orderLineResponse.setMainImageBase64(product.get().getMainImageBase64());
-            orderLineResponse.setQuantity(orderLine.getQuantity());
-            orderLineResponse.setSize(orderLine.getSize());
-            orderLineResponse.setNameProduct(product.get().getName());
-            orderLineResponse.setTotalPrice(orderLine.getTotalPrice());
-
-            orderLineResponseList.add(orderLineResponse);
-        });
-
-        orderResponse.setOrderLines(orderLineResponseList);
-
-        return orderResponse;
-    }
-
     @Override
-    public List<OrderResponse> getOrdersResponse(List<Order> orders) {
-        List<OrderResponse> orderResponseList = new ArrayList<>();
-
-        orders.forEach(order -> {
-            OrderResponse orderResponse = generateOrderResponse(order);
-            orderResponseList.add(orderResponse);
-        });
-        return orderResponseList;
-    }
-
-    @Override
-    public List<OrderResponse> getOrderDetailsByUser(String orderStatus, String paymentMethod,
-                                                     LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
-                                                     LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
-                                                     LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd) throws CustomException {
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        User user = userService.findUserProfileByJwt(token);
+    public ListOrdersResponse getOrderDetailsByUser(String orderStatus, String paymentMethod,
+                                                    LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
+                                                    LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
+                                                    LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd, String orderCode) throws CustomException {
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
 
         List<Order> ordersOfUser = orderRepository.getOrdersByUser(user.getId(), orderStatus, paymentMethod,
                 orderDateStart, orderDateEnd,
                 deliveryDateStart, deliveryDateEnd,
-                receivingDateStart, receivingDateEnd);
+                receivingDateStart, receivingDateEnd, orderCode);
 
-        return getOrdersResponse(ordersOfUser);
+        ListOrdersResponse listOrdersResponse = new ListOrdersResponse();
+        listOrdersResponse.setListOrders(this.generateOrderListToOrderResponseList(ordersOfUser));
+        listOrdersResponse.setTotal((long) ordersOfUser.size());
+
+        return listOrdersResponse;
     }
 
     @Override
@@ -307,7 +352,7 @@ public class OrderServiceImpl implements OrderService {
                                                        LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
                                                        LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
                                                        LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
-                                                       int pageIndex, int pageSize) {
+                                                       int pageIndex, int pageSize) throws CustomException {
 
         List<Order> orderList = orderRepository.getOrdersByAdmin(orderBy, phoneNumber, orderStatus, paymentMethod, province, district,
                 ward, orderDateStart, orderDateEnd, deliveryDateStart, deliveryDateEnd, receivingDateStart, receivingDateEnd);
@@ -317,293 +362,298 @@ public class OrderServiceImpl implements OrderService {
         int endIndex = Math.min(startIndex + pageable.getPageSize(), orderList.size());
 
         ListOrdersResponse listOrdersResponse = new ListOrdersResponse();
-        listOrdersResponse.setListOrders(getOrdersResponse(orderList.subList(startIndex, endIndex)));
+        listOrdersResponse.setListOrders(generateOrderListToOrderResponseList(orderList.subList(startIndex, endIndex)));
         listOrdersResponse.setTotal((long) orderList.size());
 
         return listOrdersResponse;
     }
 
     @Override
-    public OrderResponse getOrderDetail(Long orderId) throws CustomException {
-        Optional<Order> order = orderRepository.findById(orderId);
-        if (order.isPresent()) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-            User user = userService.findUserProfileByJwt(token);
-            if (user.getId().equals(order.get().getUser().getId())) {
+    public OrderResponse getOrderDetail(Long id) throws CustomException {
+        Order order = this.getById(id);
 
-                OrderResponse orderResponse = new OrderResponse();
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
+        if (!user.getId().equals(order.getUser().getId())) {
+            throw new CustomException(
+                    "You do not have permission to see information of this order !!!",
+                    HttpStatus.UNAUTHORIZED.value());
+        }
+        return orderMapper.orderToOrderResponse(order);
+    }
 
-                orderResponse.setId(order.get().getId());
-                orderResponse.setFullName(order.get().getFullName());
-                orderResponse.setPhoneNumber(order.get().getPhoneNumber());
-                orderResponse.setAlternatePhone(order.get().getAlternatePhoneNumber());
-                orderResponse.setAddress(order.get().getAddress());
-                orderResponse.setWard(order.get().getWard());
-                orderResponse.setDistrict(order.get().getDistrict());
-                orderResponse.setProvince(order.get().getProvince());
-                orderResponse.setNotes(order.get().getNote());
+    @Override
+    @Transactional
+    public void cancelOrderByUser(Long id) throws CustomException {
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
 
-                return orderResponse;
+        Order order = this.getById(id);
 
-            } else {
-                throw new CustomException("You do not have permission to see information of this order !!!");
+        if (!order.getStatus().equals(OrderConstant.ORDER_PENDING)) {
+            throw new CustomException(
+                    "This order is on its way to you !!!",
+                    HttpStatus.BAD_REQUEST.value());
+        }
+        // Kiểm tra xem user có sở hữu đơn hàng này không
+        if (!Objects.equals(user.getId(), order.getUser().getId())) {
+            throw new CustomException(
+                    "You do not have permission to cancel this order !!!",
+                    HttpStatus.UNAUTHORIZED.value());
+        }
+        if (order.getPaymentMethod().equals("VNPAY")) {
+            VNPayInformation vnPayInformation = vnPayRepository.findByOrderId(order.getId());
+            if (vnPayInformation != null) {
+                vnPayRepository.delete(vnPayInformation);
             }
-        } else {
-            throw new CustomException("Order not found !!!");
         }
+        orderRepository.delete(order);
     }
 
     @Override
     @Transactional
-    public void cancelOrderByUser(Long idOrder) throws CustomException {
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        User user = userService.findUserProfileByJwt(token);
+    public void markOrderConfirmed(Long id) throws CustomException, MessagingException {
+        Order order = this.getById(id);
 
-        Optional<Order> order = orderRepository.findById(idOrder);
+        String email = methodUtils.getEmailFromTokenOfAdmin();
 
-        if (order.isPresent()) {
-            if (order.get().getStatus().equals(OrderConstant.ORDER_PENDING)) {
-                // Kiểm tra xem user có sở hữu đơn hàng này không
-                if (Objects.equals(user.getId(), order.get().getUser().getId())) {
-                    if (order.get().getPaymentMethod().equals("VNPAY")) {
-                        VNPayInformation vnPayInformation = vnPayRepository.findByOrderId(order.get().getId());
-                        if (vnPayInformation != null) {
-                            vnPayRepository.delete(vnPayInformation);
-                        }
+        // cập nhật lại số lượng còn trong kho
+        for (OrderLine orderLine : order.getOrderLines()) {
+            Product product = productService.getById(orderLine.getProduct().getId());
+
+            boolean checkSizeExist = false;  // kiểm tra xem size này có tồn tại không
+
+            Set<Size> sizes = new HashSet<>();
+            // cập nhật lại số lượng cho từng size
+            for (Size size : product.getSizes()) {
+                if (size.getName() == orderLine.getSize()) {
+                    // kiểm tra số lượng trong kho có phù hợp không
+                    if(size.getQuantity() == 0){
+                        throw new CustomException(
+                                "Product code: " + product.getCode() + " with size: " + size.getName() + " is out of stock !!!",
+                                HttpStatus.BAD_REQUEST.value()
+                        );
                     }
-                    orderRepository.delete(order.get());
-                } else {
-                    throw new CustomException("You do not have permission to cancel this order !!!");
+                    if(size.getQuantity() < orderLine.getQuantity()){
+                        throw new CustomException(
+                                "Product code: " + product.getCode() + " with size: " + size.getName() + " insufficient quantity required !!!",
+                                HttpStatus.BAD_REQUEST.value()
+                        );
+                    }
+                    size.setQuantity(size.getQuantity() - orderLine.getQuantity());
+                    checkSizeExist = true;
                 }
-            } else {
-                throw new CustomException("This order is on its way to you !!!");
+                sizes.add(size);
             }
 
-        } else {
-            throw new CustomException("Not found this order !!!");
+            if (!checkSizeExist) {
+                throw new CustomException(
+                        "Product " + product.getId() + " not have size " + orderLine.getSize() + " !!!",
+                        HttpStatus.BAD_REQUEST.value());
+            }
+
+            // cập nhật danh sách size mới sau khi cập nhật số lương từng size
+            product.setSizes(sizes);
+            int quantity = product.getSizes().stream().mapToInt(Size::getQuantity).sum();
+            product.setQuantity(quantity);
+
+            // update product
+            productRepository.save(product);
         }
+
+        order.setStatus(OrderConstant.ORDER_CONFIRMED);
+        order.setUpdateBy(email);
+
+        // update status order
+        order = orderRepository.save(order);
+
+        // send email to the user
+        Context context = this.prepareOrderContext(order);
+        emailService.sendEmail(order.getUser().getEmail(), "Success! Your Order Has Been Confirmed", "order_email", context);
     }
 
     @Override
     @Transactional
-    public void markOrderConfirmed(Long id) throws CustomException {
-        Optional<Order> order = orderRepository.findById(id);
+    public void markOrderShipped(Long id) throws CustomException, MessagingException {
+        Order order = this.getById(id);
 
-        if (order.isPresent()) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-            User admin = userService.findUserProfileByJwt(token);
+        String email = methodUtils.getEmailFromTokenOfAdmin();
 
-            // cập nhật lại số lượng còn trong kho
-            order.get().getOrderLines().forEach(orderLine -> {
-                Optional<Product> product = productRepository.findById(orderLine.getProduct().getId());
+        order.setStatus(OrderConstant.ORDER_SHIPPED);
+        order.setDeliveryDate(LocalDateTime.now());
+        order.setUpdateBy(email);
 
-                if (product.isPresent()) {
+        order = orderRepository.save(order);
 
-                    Set<Size> sizes = new HashSet<>();
-                    int quantity = 0;
-
-                    boolean checkSizeExist = false;  // => kiểm tra xem size này có tồn tại không
-
-                    // cập nhật lại số lượng tùng size
-                    for (Size size : product.get().getSizes()) {
-                        if (size.getName() == orderLine.getSize()) {
-                            size.setQuantity(size.getQuantity() - orderLine.getQuantity());
-                            sizes.add(size);
-                            checkSizeExist = true;
-                        }
-                        sizes.add(size);
-                    }
-
-                    if (!checkSizeExist) {
-                        try {
-                            throw new CustomException("Product " + product.get().getId() + " not have size " + orderLine.getSize() + " !!!");
-                        } catch (CustomException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                    // cập nhật lại tổng số lượng của sản phẩm
-                    for (Size size : sizes) {
-                        quantity += size.getQuantity();
-                    }
-
-                    product.get().setQuantity(quantity);
-                    product.get().setSizes(sizes);
-
-                    productRepository.save(product.get());
-                } else {
-                    try {
-                        throw new CustomException("Product not found with id: " + orderLine.getProduct().getId());
-                    } catch (CustomException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            });
-
-            order.get().setStatus(OrderConstant.ORDER_CONFIRMED);
-            order.get().setUpdateBy(admin.getEmail());
-
-            orderRepository.save(order.get());
-        } else {
-            throw new CustomException("Order not found with id " + id);
-        }
+        // send email to the user
+        Context context = this.prepareOrderContext(order);
+        emailService.sendEmail(order.getUser().getEmail(), "Success! Your Order Has Been Shipped", "order_email", context);
     }
 
     @Override
     @Transactional
-    public void markOrderShipped(Long id) throws CustomException {
-        Optional<Order> order = orderRepository.findById(id);
+    public void markOrderDelivered(Long id) throws CustomException, MessagingException {
+        Order order = this.getById(id);
 
-        if (order.isPresent()) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-            User admin = userService.findUserProfileByJwt(token);
+        String email = methodUtils.getEmailFromTokenOfAdmin();
 
-            order.get().setStatus(OrderConstant.ORDER_SHIPPED);
-            order.get().setDeliveryDate(LocalDateTime.now());
-            order.get().setUpdateBy(admin.getEmail());
 
-            orderRepository.save(order.get());
-        } else {
-            throw new CustomException("Order not found with id " + id);
-        }
+        order.setPay(OrderConstant.ORDER_PAID);
+        order.setStatus(OrderConstant.ORDER_DELIVERED);
+        order.setReceivingDate(LocalDateTime.now());
+        order.setUpdateBy(email);
+
+        order = orderRepository.save(order);
+
+        // send email to the user
+        Context context = this.prepareOrderContext(order);
+        emailService.sendEmail(order.getUser().getEmail(), "Success! Your Order Has Been Delivered", "order_email", context);
     }
 
     @Override
     @Transactional
-    public void markOrderDelivered(Long id) throws CustomException {
-        Optional<Order> order = orderRepository.findById(id);
-
-        if (order.isPresent()) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_ADMIN);
-            User admin = userService.findUserProfileByJwt(token);
-
-            order.get().setPay(OrderConstant.ORDER_PAID);
-            order.get().setStatus(OrderConstant.ORDER_DELIVERED);
-            order.get().setReceivingDate(LocalDateTime.now());
-            order.get().setUpdateBy(admin.getEmail());
-
-            orderRepository.save(order.get());
-        } else {
-            throw new CustomException("Order not found with id " + id);
+    public Response deleteOrderByAdmin(Long id) throws CustomException, MessagingException {
+        Order order = this.getById(id);
+        if(!order.getStatus().equals(OrderConstant.ORDER_DELIVERED)){
+            // send email to the user
+            Context context = this.prepareOrderContext(order);
+            context.setVariable("orderCancelled", true);
+            emailService.sendEmail(order.getUser().getEmail(), "OOP! Your Order Has Been Cancelled", "order_email", context);
         }
+        orderRepository.delete(order);
+
+        Response response = new Response();
+        response.setMessage("Delete order success !!!");
+        response.setStatus(HttpStatus.OK.value());
+
+        return response;
     }
 
     @Override
     @Transactional
-    public void deleteOrderByAdmin(Long id) throws CustomException {
-        Optional<Order> order = orderRepository.findById(id);
+    public Response deleteSomeOrdersByAdmin(List<Long> listIdOrder) throws CustomException, MessagingException {
+        List<Order> lstOrderDelete = orderRepository.findAllById(listIdOrder);
 
-        if (order.isEmpty()) {
+        List<Long> lstIdOrderDelete = lstOrderDelete.stream().map(Order::getId).collect(Collectors.toList());
 
-            throw new CustomException("Not found order have id: " + id + " !!!");
+        List<Long> lstIdOrderMiss = listIdOrder.stream().filter(id -> !lstIdOrderDelete.contains(id)).collect(Collectors.toList());
+
+        for(Order order : lstOrderDelete) {
+            if (!order.getStatus().equals(OrderConstant.ORDER_DELIVERED)) {
+                Context context = this.prepareOrderContext(order);
+                context.setVariable("orderCancelled", true);
+                emailService.sendEmail(order.getUser().getEmail(), "OOP! Your Order Has Been Cancelled", "order_email", context);
+            }
         }
-        orderRepository.delete(order.get());
+
+        orderRepository.deleteAll(lstOrderDelete);
+
+        String message = lstIdOrderMiss.isEmpty() ? "Delete some orders success !!!"
+                : "Delete some orders success , but have some orders not found: " + lstIdOrderMiss;
+
+        Response response = new Response();
+        response.setMessage(message);
+        response.setStatus(HttpStatus.OK.value());
+
+        return response;
     }
 
     @Override
-    @Transactional
-    public void deleteSomeOrdersByAdmin(List<Long> listIdOrder) throws CustomException {
-        for (Long id : listIdOrder) {
-            deleteOrderByAdmin(id);
-        }
-    }
-
-    @Override
-    public long findOrderIdNewest() {
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        String email = (String) jwtProvider.getClaimsFormToken(token).get("email");
-
+    public long findOrderIdNewest() throws CustomException {
+        String email = methodUtils.getEmailFromTokenOfUser();
         Order order = orderRepository.getOrderIdNewest(email);
         return order.getId();
     }
 
     @Override
-    public OrderResponse getOrderNewestByEmail() {
-        String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-        String email = (String) jwtProvider.getClaimsFormToken(token).get("email");
-
+    public OrderResponse getOrderNewestByEmail() throws CustomException {
+        String email = methodUtils.getEmailFromTokenOfUser();
         Order order = orderRepository.getOrderIdNewest(email);
-
         return generateOrderResponse(order);
     }
 
     @Transactional
     @Override
-    public void updatePayOfOrderVNPay(String vnp_ResponseCode, Long orderId) throws CustomException {
-        Optional<Order> order = orderRepository.findById(orderId);
-        if (order.isPresent()) {
-            if (vnp_ResponseCode.equals("00")) {
-                order.get().setPay(OrderConstant.ORDER_PAID);
-            } else {
-                order.get().setPay(OrderConstant.ORDER_UNPAID);
-            }
-            orderRepository.save(order.get());
+    public void updatePayOfOrderVNPay(String vnp_ResponseCode, Long id) throws CustomException {
+        Order order = this.getById(id);
+        if (vnp_ResponseCode.equals("00")) {
+            order.setPay(OrderConstant.ORDER_PAID);
         } else {
-            throw new CustomException("Order not found !!!");
+            order.setPay(OrderConstant.ORDER_UNPAID);
         }
+        orderRepository.save(order);
+
     }
 
     @Transactional
     @Override
-    public void updatePayOfOrderPayPal(String approved, Long orderId) throws CustomException {
-        Optional<Order> order = orderRepository.findById(orderId);
-        if (order.isPresent()) {
-            if (approved.equals("approved")) {
-                order.get().setPay(OrderConstant.ORDER_PAID);
-            } else {
-                order.get().setPay(OrderConstant.ORDER_UNPAID);
-            }
-            orderRepository.save(order.get());
+    public void updatePayOfOrderPayPal(String approved, Long id) throws CustomException {
+        Order order = this.getById(id);
+        if (approved.equals("approved")) {
+            order.setPay(OrderConstant.ORDER_PAID);
         } else {
-            throw new CustomException("Order not found !!!");
+            order.setPay(OrderConstant.ORDER_UNPAID);
         }
+        orderRepository.save(order);
     }
 
     @Transactional
     @Override
-    public void updateOrderByUser(Long orderId, OrderUpdateRequest orderUpdateRequest) throws CustomException {
-        Optional<Order> orderUpdate = orderRepository.findById(orderId);
-        if (orderUpdate.isPresent()) {
-            String token = jwtProvider.getTokenFromCookie(request, CookieConstant.JWT_COOKIE_USER);
-            User user = userService.findUserProfileByJwt(token);
-            if (orderUpdate.get().getUser().getId().equals(user.getId())) {
-                orderUpdate.get().setFullName(orderUpdateRequest.getFullName());
-                orderUpdate.get().setPhoneNumber(orderUpdateRequest.getPhoneNumber());
-                orderUpdate.get().setAlternatePhoneNumber(orderUpdateRequest.getAlternatePhone());
-                orderUpdate.get().setAddress(orderUpdateRequest.getAddress());
-                orderUpdate.get().setWard(orderUpdateRequest.getWard());
-                orderUpdate.get().setDistrict(orderUpdateRequest.getDistrict());
-                orderUpdate.get().setProvince(orderUpdateRequest.getProvince());
-                orderUpdate.get().setNote(orderUpdateRequest.getNotes());
-                orderUpdate.get().setUpdateAtUser(LocalDateTime.now());
-                orderUpdate.get().setUpdateByUser(user.getEmail());
+    public void updateOrderByUser(Long id, OrderRequest orderUpdateRequest) throws CustomException {
+        Order orderUpdate = this.getById(id);
 
-                orderRepository.save(orderUpdate.get());
-            } else {
-                throw new CustomException("You do not have permission to update this order !!!");
-            }
-        } else {
-            throw new CustomException("Order not found !!!");
+        String email = methodUtils.getEmailFromTokenOfUser();
+        User user = userService.findUserByEmail(email);
+
+        if (!orderUpdate.getUser().getId().equals(user.getId())) {
+            throw new CustomException(
+                    "You do not have permission to update this order !!!",
+                    HttpStatus.UNAUTHORIZED.value()
+            );
         }
+        orderMapper.orderRequestToOrder(orderUpdateRequest, orderUpdate);
+        orderUpdate.setUpdateAtUser(LocalDateTime.now());
+        orderUpdate.setUpdateByUser(email);
+
+        orderRepository.save(orderUpdate);
     }
 
     @Override
-    public Long totalOrders() {
-        return orderRepository.count();
+    public ResponseData<Long> totalOrders() {
+        Long totalOrders = orderRepository.count();
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get total Orders success !!!");
+        responseData.setResults(totalOrders);
+
+        return responseData;
     }
 
     @Override
-    public Double revenue() {
-        return orderRepository.sumTotalPrice();
+    public ResponseData<Double> revenue() {
+        Double revenue = orderRepository.sumTotalPrice();
+        ResponseData<Double> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get revenue success !!!");
+        responseData.setResults(revenue);
+
+        return responseData;
     }
 
     @Override
-    public List<QuantityByBrandResponse> quantityProductSoldByBrand() {
-        return orderLineRepository.quantityProductSoldByBrand();
+    public ResponseData<List<QuantityByBrandResponse>> quantityProductSoldByBrand() {
+        List<QuantityByBrandResponse> quantity = orderLineRepository.quantityProductSoldByBrand();
+
+        ResponseData<List<QuantityByBrandResponse>> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Count quantity product sold by Brand success !!!");
+        responseData.setResults(quantity);
+
+        return responseData;
     }
 
     @Override
-    public List<OrderStatisticalByYearResponse> statisticByYear(int year) {
+    public ResponseData<List<OrderStatisticalByYearResponse>> statisticByYear(int year) {
         List<OrderStatisticalByYearResponse> statistical = orderRepository.statisticByYear(year);
 
         for (int month = 1; month <= 12; month++) {
@@ -617,23 +667,50 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        return statistical.stream()
+        List<OrderStatisticalByYearResponse> statisticalConvert = statistical.stream()
                 .sorted((a, b) -> Integer.compare(a.getMonth(), b.getMonth()))
                 .collect(Collectors.toList());
+
+        ResponseData<List<OrderStatisticalByYearResponse>> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get statistic by year success !!!");
+        responseData.setResults(statisticalConvert);
+
+        return responseData;
     }
 
     @Override
-    public List<String> getAllYearInOrder() {
-        return orderRepository.getAllYearInOrder();
+    public ResponseData<List<String>> getAllYearInOrder() {
+        List<String> years = orderRepository.getAllYearInOrder();
+        ResponseData<List<String>> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get all years success !!!");
+        responseData.setResults(years);
+
+        return responseData;
     }
 
     @Override
-    public long averageOrdersValue() {
-        return Math.round(orderRepository.averageOrdersValue());
+    public ResponseData<Long> averageOrdersValue() {
+        long average = Math.round(orderRepository.averageOrdersValue());
+
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Calculate average orders value success !!!");
+        responseData.setResults(average);
+
+        return responseData;
     }
 
     @Override
-    public long sold() {
-        return orderLineRepository.sold();
+    public ResponseData<Long> sold() {
+        long total = orderLineRepository.sold();
+
+        ResponseData<Long> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get total products sold success !!!");
+        responseData.setResults(total);
+
+        return responseData;
     }
 }

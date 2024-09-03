@@ -1,10 +1,10 @@
 package com.example.api;
 
 import com.example.Entity.Product;
+import com.example.Entity.Size;
 import com.example.exception.CustomException;
 import com.example.response.ListProductsResponse;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
 import com.example.service.implement.ProductServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Set;
 
 @RestController("products")
 @RequestMapping("/api")
@@ -53,7 +55,7 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @GetMapping("/products/featured")
-    public ResponseEntity<?> getTwelveNewestProducts() throws ResponseError {
+    public ResponseEntity<?> getTwelveNewestProducts() throws CustomException {
         ListProductsResponse listProductsResponse = productService.getTwelveNewestProducts();
 
         ResponseData<ListProductsResponse> responseData = new ResponseData<>();
@@ -66,7 +68,7 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @GetMapping("/products/bestseller")
-    public ResponseEntity<?> getTwelveProductsLeastQuantity() throws ResponseError {
+    public ResponseEntity<?> getTwelveProductsLeastQuantity() throws CustomException {
         ListProductsResponse listProductsResponse = productService.getTwelveProductsLeastQuantity();
 
         ResponseData<ListProductsResponse> responseData = new ResponseData<>();
@@ -90,8 +92,8 @@ public class ApiProduct {
 
     // CALL SUCCESS
     @GetMapping("/product/detail")
-    public ResponseEntity<?> getDetailProduct(@RequestParam("id") Long id) throws ResponseError {
-        Product product = productService.getDetailProduct(id);
+    public ResponseEntity<?> getDetailProduct(@RequestParam("id") Long id) throws CustomException {
+        Product product = productService.getById(id);
 
         ResponseData<Product> responseData = new ResponseData<>();
         responseData.setResults(product);
@@ -124,6 +126,18 @@ public class ApiProduct {
         responseData.setStatus(HttpStatus.OK.value());
         responseData.setMessage("Get products also like success !!!");
         responseData.setResults(listProductsResponse);
+
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
+
+    @GetMapping("/product/sizes")
+    public ResponseEntity<?> getSizesOfProduct(@RequestParam("id") Long id) throws CustomException {
+        Set<Size> sizes = productService.getSizesOfProduct(id);
+
+        ResponseData<Set<Size>> responseData = new ResponseData<>();
+        responseData.setStatus(HttpStatus.OK.value());
+        responseData.setMessage("Get sizes of products success !!!");
+        responseData.setResults(sizes);
 
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }

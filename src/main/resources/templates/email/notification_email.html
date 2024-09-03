@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #b8181e;
+            padding: 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 20px;
+            text-align: center;
+        }
+        .message {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .message p {
+            margin: 5px 0;
+        }
+        .footer {
+            padding: 10px;
+            text-align: center;
+            background-color: #f5f5f5;
+            font-size: 12px;
+            color: #999999;
+        }
+        .signature{
+            font-style: italic;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Important Update</h1>
+    </div>
+    <div class="content">
+        <p>Dear [[${firstName}]],</p>
+        <p>We wanted to inform you about an important update regarding your account:</p>
+
+        <div class="message">
+            <p><strong>[[${notification}]]</strong></p>
+            <p>[[${description}]]</p>
+        </div>
+
+        <p>Thank you for your attention.</p>
+    </div>
+    <div class="footer">
+        <p>We appreciate your business and look forward to serving you again!</p>
+        <p class="signature">Fashion Shoes</p>
+    </div>
+</div>
+<p>If you have any questions or need further assistance, please do not hesitate to contact us at <a href="mailto:manager.fashionshoes@gmail.com">manager.fashionshoes@gmail.com</a>.</p>
+</body>
+</html>

@@ -6,7 +6,7 @@ public class UserResponse {
     private Long id;
     private String code;
     private String roles;
-    private LocalDate createAt;
+    private LocalDate createdAt;
     private String firstName;
     private String lastName;
     private String mobile;
@@ -17,17 +17,18 @@ public class UserResponse {
     private String district;
     private String ward;
     private String imageBase64;
+    private boolean active;
 
     public UserResponse() {
     }
 
-    public UserResponse(Long id, String code, String roles, LocalDate createAt,
-                        String firstName, String lastName, String mobile, String gender,
-                        String email, String address, String province, String district, String ward, String imageBase64) {
+    public UserResponse(Long id, String code, String roles, LocalDate createdAt, String firstName, String lastName,
+                        String mobile, String gender, String email, String address, String province, String district,
+                        String ward, String imageBase64, boolean active) {
         this.id = id;
         this.code = code;
         this.roles = roles;
-        this.createAt = createAt;
+        this.createdAt = createdAt;
         this.firstName = firstName;
         this.lastName = lastName;
         this.mobile = mobile;
@@ -38,6 +39,7 @@ public class UserResponse {
         this.district = district;
         this.ward = ward;
         this.imageBase64 = imageBase64;
+        this.active = active;
     }
 
     public String getRoles() {
@@ -64,12 +66,12 @@ public class UserResponse {
         this.id = id;
     }
 
-    public LocalDate getCreateAt() {
-        return createAt;
+    public LocalDate getCreatedAt() {
+        return createdAt;
     }
 
-    public void setCreateAt(LocalDate createAt) {
-        this.createAt = createAt;
+    public void setCreatedAt(LocalDate createdAt) {
+        this.createdAt = createdAt;
     }
 
     public String getFirstName() {
@@ -150,5 +152,13 @@ public class UserResponse {
 
     public void setImageBase64(String imageBase64) {
         this.imageBase64 = imageBase64;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

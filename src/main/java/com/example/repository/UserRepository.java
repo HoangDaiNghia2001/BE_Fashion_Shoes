@@ -14,7 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u from User u where u.email=?1")
     Optional<User> findByEmail(String email);
 
-    @Query("select new com.example.response.TopFiveUsersBoughtTheMostResponse(o.user.id,o.user.email,o.user.mobile,o.user.lastName,o.user.firstName,o.user.gender,sum(o.totalPrice)) from Order o " +
+    @Query("select new com.example.response.TopFiveUsersBoughtTheMostResponse(o.user.id,o.user.code,o.user.email,o.user.mobile,o.user.lastName,o.user.firstName,o.user.gender,sum(o.totalPrice)) from Order o " +
             "group by o.user.id " +
             "order by sum(o.totalPrice) desc " +
             "limit 5")
@@ -27,8 +27,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "and (?3 is null or u.province = ?3) " +
             "and (?4 is null or u.district = ?4) " +
             "and (?5 is null or u.ward = ?5) " +
-            "and u.email <> ?6")
-    List<User> filterUserByAdmin(String code, String email, String province, String district, String ward, String emailPresent);
+            "and u.email <> ?6 " +
+            "and (?7 is null or u.active <> ?7) " +
+            "order by u.id desc")
+    List<User> filterUserByAdmin(String code, String email, String province, String district, String ward, String emailPresent, boolean inactive);
 
     @Modifying
     @Query(value = "DELETE FROM user_role WHERE user_id = :userId", nativeQuery = true)

@@ -3,11 +3,11 @@ package com.example.service.implement;
 import com.example.Entity.ChildCategory;
 import com.example.Entity.ParentCategory;
 import com.example.repository.ChildCategoryRepository;
-import com.example.repository.ParentCategoryRepository;
 import com.example.request.ChildCategoryRequest;
 import com.example.response.Response;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.service.ChildCategoryService;
+import com.example.service.ParentCategoryService;
 import com.example.util.MethodUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,27 +20,48 @@ import java.util.Optional;
 @Service
 public class ChildCategoryServiceImpl implements ChildCategoryService {
     @Autowired
-    private ParentCategoryRepository parentCategoryRepository;
+    private ParentCategoryService parentCategoryService;
     @Autowired
     private ChildCategoryRepository childCategoryRepository;
     @Autowired
     private MethodUtils methodUtils;
 
     @Override
-    @Transactional
-    public ChildCategory createChildCategory(ChildCategoryRequest childCategoryRequest) throws ResponseError {
-        ParentCategory parentCategory = parentCategoryRepository.findById(childCategoryRequest.getParentCategoryId())
-                .orElseThrow(() -> new ResponseError(
-                        "Parent category not found !!!",
+    public ChildCategory getById(Long id) throws CustomException {
+        ChildCategory childCategory = childCategoryRepository.findById(id)
+                .orElseThrow(() -> new CustomException(
+                        "Child category not found !!!",
                         HttpStatus.NOT_FOUND.value()
                 ));
+        return childCategory;
+    }
+
+    @Override
+    public ChildCategory getByIdAndParentCategoryId(Long id, Long parentId) throws CustomException {
+        ChildCategory childCategory = childCategoryRepository.findByIdAndParentCategoryId(id, parentId)
+                .orElseThrow(() -> new CustomException(
+                        new StringBuilder("Child category with id ")
+                                .append(id)
+                                .append(" and have parent category id ")
+                                .append(parentId)
+                                .append(" not exist !!!")
+                                .toString(),
+                        HttpStatus.NOT_FOUND.value()
+                ));
+        return childCategory;
+    }
+
+    @Override
+    @Transactional
+    public ChildCategory createChildCategory(ChildCategoryRequest childCategoryRequest) throws CustomException {
+        ParentCategory parentCategory = parentCategoryService.getById(childCategoryRequest.getParentCategoryId());
 
         childCategoryRequest.setName(childCategoryRequest.getName().toUpperCase());
 
         Optional<ChildCategory> childCategoryExist = childCategoryRepository.findByNameAndParentCategoryId(childCategoryRequest.getName(), parentCategory.getId());
 
         if (childCategoryExist.isPresent()) {
-            throw new ResponseError(
+            throw new CustomException(
                     "Child category with name: " + childCategoryRequest.getName() + " already exist !!!",
                     HttpStatus.CONFLICT.value()
             );
@@ -57,15 +78,19 @@ public class ChildCategoryServiceImpl implements ChildCategoryService {
 
     @Override
     @Transactional
-    public ChildCategory updateChildCategory(Long id, ChildCategoryRequest childCategoryRequest) throws ResponseError {
-        ChildCategory oldChildCategory = childCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Child category not found !!!",
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public ChildCategory updateChildCategory(Long id, ChildCategoryRequest childCategoryRequest) throws CustomException {
+        ChildCategory oldChildCategory = this.getById(id);
+
+        if(!oldChildCategory.getParentCategory().getId().equals(childCategoryRequest.getParentCategoryId())){
+            throw new CustomException(
+                    "Parent category id request does not match with parent category id of this child category",
+                    HttpStatus.BAD_REQUEST.value()
+            );
+        }
 
         childCategoryRequest.setName(childCategoryRequest.getName().toUpperCase());
 
+        // check name unique
         Optional<ChildCategory> childCategoryExist = childCategoryRepository.findByNameAndParentCategoryId(childCategoryRequest.getName(), oldChildCategory.getParentCategory().getId());
 
         if (!childCategoryExist.isPresent() || childCategoryExist.get().getName().equals(oldChildCategory.getName())) {
@@ -76,7 +101,7 @@ public class ChildCategoryServiceImpl implements ChildCategoryService {
 
             return childCategoryRepository.save(oldChildCategory);
         } else {
-            throw new ResponseError(
+            throw new CustomException(
                     "Child category with name: " + childCategoryRequest.getName() + " already exist !!!",
                     HttpStatus.CONFLICT.value());
         }
@@ -84,12 +109,8 @@ public class ChildCategoryServiceImpl implements ChildCategoryService {
 
     @Override
     @Transactional
-    public Response deleteChildCategory(Long id) throws ResponseError {
-        ChildCategory childCategory = childCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResponseError(
-                        "Child category not found with id: " + id,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public Response deleteChildCategory(Long id) throws CustomException {
+        ChildCategory childCategory = this.getById(id);
         childCategoryRepository.delete(childCategory);
         Response response = new Response();
         response.setMessage("Delete child category success !!!");
@@ -99,12 +120,8 @@ public class ChildCategoryServiceImpl implements ChildCategoryService {
     }
 
     @Override
-    public List<ChildCategory> getAllChildCategoriesByParentCategoryId(Long parentCategoryId) throws ResponseError {
-        ParentCategory parentCategory = parentCategoryRepository.findById(parentCategoryId)
-                .orElseThrow(() -> new ResponseError(
-                        "Parent category not found with id: " + parentCategoryId,
-                        HttpStatus.NOT_FOUND.value()
-                ));
+    public List<ChildCategory> getAllChildCategoriesByParentCategoryId(Long parentCategoryId) throws CustomException {
+        ParentCategory parentCategory = parentCategoryService.getById(parentCategoryId);
 
         return childCategoryRepository.getAllChildCategoriesByParentCategoryId(parentCategory.getId());
     }

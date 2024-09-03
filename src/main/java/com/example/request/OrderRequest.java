@@ -13,14 +13,14 @@ public class OrderRequest {
     private String paymentMethod;
     private String note;
     private double transportFee;
-    private List<OrderProductQuantityRequest> productQuantities;
+    private List<OrderLineRequest> orderLineRequests;
 
     public OrderRequest() {
     }
 
     public OrderRequest(String fullName, String address, String district, String province, String ward, String phoneNumber,
                         String alternatePhoneNumber, String paymentMethod,
-                        String note, double transportFee, List<OrderProductQuantityRequest> productQuantities) {
+                        String note, double transportFee, List<OrderLineRequest> orderLineRequests) {
         this.fullName = fullName;
         this.address = address;
         this.district = district;
@@ -31,7 +31,7 @@ public class OrderRequest {
         this.paymentMethod = paymentMethod;
         this.note = note;
         this.transportFee = transportFee;
-        this.productQuantities = productQuantities;
+        this.orderLineRequests = orderLineRequests;
     }
 
     public String getPaymentMethod() {
@@ -106,12 +106,12 @@ public class OrderRequest {
         this.alternatePhoneNumber = alternatePhoneNumber;
     }
 
-    public List<OrderProductQuantityRequest> getProductQuantities() {
-        return productQuantities;
+    public List<OrderLineRequest> getOrderLineRequests() {
+        return orderLineRequests;
     }
 
-    public void setProductQuantities(List<OrderProductQuantityRequest> productQuantities) {
-        this.productQuantities = productQuantities;
+    public void setOrderLineRequests(List<OrderLineRequest> orderLineRequests) {
+        this.orderLineRequests = orderLineRequests;
     }
 
     public String getNote() {

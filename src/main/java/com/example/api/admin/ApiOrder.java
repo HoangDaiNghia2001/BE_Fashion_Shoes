@@ -3,6 +3,7 @@ package com.example.api.admin;
 import com.example.exception.CustomException;
 import com.example.response.*;
 import com.example.service.OrderService;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -14,7 +15,6 @@ import java.util.List;
 
 @RestController("orderOfRoleAdmin")
 @RequestMapping("/api/admin")
-//@CrossOrigin(origins = {"http://localhost:3000/","http://localhost:3001/","https://fashion-shoes.vercel.app/"}, allowCredentials = "true")
 public class ApiOrder {
     @Autowired
     private OrderService orderDetailService;
@@ -35,13 +35,13 @@ public class ApiOrder {
                                               @RequestParam(value = "receivingDateStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateStart,
                                               @RequestParam(value = "receivingDateEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime receivingDateEnd,
                                               @RequestParam("pageIndex") int pageIndex,
-                                              @RequestParam("pageSize") int pageSize) {
+                                              @RequestParam("pageSize") int pageSize) throws CustomException {
         ListOrdersResponse orderResponseList = orderDetailService.getAllOrderDetailByAdmin(orderBy, phoneNumber, orderStatus, paymentMethod, province,
                 district, ward, orderDateStart, orderDateEnd, deliveryDateStart,
                 deliveryDateEnd, receivingDateStart, receivingDateEnd, pageIndex, pageSize);
 
         ResponseData<ListOrdersResponse> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
+        responseData.setStatus(HttpStatus.OK.value());
         responseData.setResults(orderResponseList);
         responseData.setMessage("Filter orders success !!!");
 
@@ -51,135 +51,90 @@ public class ApiOrder {
 
     // CALL SUCCESS
     @PutMapping("/order/confirmed")
-    public ResponseEntity<?> confirmedOrder(@RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> confirmedOrder(@RequestParam("id") Long id) throws CustomException, MessagingException {
         orderDetailService.markOrderConfirmed(id);
 
         Response response = new Response();
         response.setMessage("Confirmed order success !!!");
-        response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @PutMapping("/order/shipped")
-    public ResponseEntity<?> shippedOrder(@RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> shippedOrder(@RequestParam("id") Long id) throws CustomException, MessagingException {
         orderDetailService.markOrderShipped(id);
 
         Response response = new Response();
         response.setMessage("Order is being shipped !!!");
-        response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @PutMapping("/order/delivered")
-    public ResponseEntity<?> deliveredOrder(@RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> deliveredOrder(@RequestParam("id") Long id) throws CustomException, MessagingException {
         orderDetailService.markOrderDelivered(id);
 
         Response response = new Response();
         response.setMessage("The order was delivered successfully !!!");
-        response.setSuccess(true);
+        response.setStatus(HttpStatus.OK.value());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     // CALL SUCCESS
     @DeleteMapping("/order")
-    public ResponseEntity<?> deleteOrder(@RequestParam("id") Long id) throws CustomException {
-        orderDetailService.deleteOrderByAdmin(id);
-
-        Response response = new Response();
-        response.setMessage("Delete order successfully !!!");
-        response.setSuccess(true);
+    public ResponseEntity<?> deleteOrder(@RequestParam("id") Long id) throws CustomException, MessagingException {
+        Response response = orderDetailService.deleteOrderByAdmin(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     //CALL SUCCESS
     @DeleteMapping("/orders/{listIdOrders}")
-    public ResponseEntity<?> deleteSomeOrders(@PathVariable List<Long> listIdOrders) throws CustomException {
-        orderDetailService.deleteSomeOrdersByAdmin(listIdOrders);
-
-        Response response = new Response();
-        response.setMessage("Delete some orders successfully !!!");
-        response.setSuccess(true);
+    public ResponseEntity<?> deleteSomeOrders(@PathVariable List<Long> listIdOrders) throws CustomException, MessagingException {
+        Response response = orderDetailService.deleteSomeOrdersByAdmin(listIdOrders);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/orders/total")
     public ResponseEntity<?> totalOrders() {
-        Long totalOrders = orderDetailService.totalOrders();
-        ResponseData<Long> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get total Orders success !!!");
-        responseData.setResults(totalOrders);
+        ResponseData<Long> responseData = orderDetailService.totalOrders();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/orders/revenue")
     public ResponseEntity<?> revenue() {
-        Double revenue = orderDetailService.revenue();
-        ResponseData<Double> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get revenue success !!!");
-        responseData.setResults(revenue);
+        ResponseData<Double> responseData = orderDetailService.revenue();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/orders/product/quantity/sold")
     public ResponseEntity<?> quantitySoldByBrand() {
-        List<QuantityByBrandResponse> quantity = orderDetailService.quantityProductSoldByBrand();
-
-        ResponseData<List<QuantityByBrandResponse>> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Count quantity product sold by Brand success !!!");
-        responseData.setResults(quantity);
-
+        ResponseData<List<QuantityByBrandResponse>> responseData = orderDetailService.quantityProductSoldByBrand();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/orders/statistic/year/{year}")
     public ResponseEntity<?> statisticalByYear(@PathVariable("year") int year) {
-        List<OrderStatisticalByYearResponse> statistical = orderDetailService.statisticByYear(year);
-
-        ResponseData<List<OrderStatisticalByYearResponse>> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get statistic by year success !!!");
-        responseData.setResults(statistical);
-
+        ResponseData<List<OrderStatisticalByYearResponse>> responseData = orderDetailService.statisticByYear(year);
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/orders/years")
     public ResponseEntity<?> getAllYearInOrder() {
-        List<String> years = orderDetailService.getAllYearInOrder();
-        ResponseData<List<String>> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get all years success !!!");
-        responseData.setResults(years);
-
+        ResponseData<List<String>> responseData = orderDetailService.getAllYearInOrder();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/orders/average/orders/value")
     public ResponseEntity<?> averageOrdersValue() {
-        long average = orderDetailService.averageOrdersValue();
-
-        ResponseData<Long> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Calculate average orders value success !!!");
-        responseData.setResults(average);
-
+        ResponseData<Long> responseData = orderDetailService.averageOrdersValue();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 
     @GetMapping("/products/sold")
     public ResponseEntity<?> sold() {
-        long total = orderDetailService.sold();
-
-        ResponseData<Long> responseData = new ResponseData<>();
-        responseData.setSuccess(true);
-        responseData.setMessage("Get total products sold success !!!");
-        responseData.setResults(total);
-
+        ResponseData<Long> responseData = orderDetailService.sold();
         return new ResponseEntity<>(responseData, HttpStatus.OK);
     }
 }

@@ -1,10 +1,8 @@
 package com.example.response;
 
-import com.example.Entity.Cart;
-
 import java.util.List;
 
-public class CartResponse{
+public class CartResponse {
     private List<CartItemResponse> listCartItems;
 
     private Long totalItems;

@@ -2,6 +2,7 @@ package com.example.response;
 
 public class TopFiveUsersBoughtTheMostResponse {
     private Long id;
+    private String code;
     private String email;
     private String phone;
     private String lastName;
@@ -12,9 +13,10 @@ public class TopFiveUsersBoughtTheMostResponse {
     public TopFiveUsersBoughtTheMostResponse() {
     }
 
-    public TopFiveUsersBoughtTheMostResponse(Long id, String email, String phone, String lastName, String firstName,
+    public TopFiveUsersBoughtTheMostResponse(Long id, String code, String email, String phone, String lastName, String firstName,
                                              String gender, double totalPrice) {
         this.id = id;
+        this.code = code;
         this.email = email;
         this.phone = phone;
         this.lastName = lastName;
@@ -29,6 +31,14 @@ public class TopFiveUsersBoughtTheMostResponse {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public String getEmail() {

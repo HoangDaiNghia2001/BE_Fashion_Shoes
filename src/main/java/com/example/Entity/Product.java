@@ -62,7 +62,7 @@ public class Product extends BaseEntity {
     private List<String> imageSecondaries;
 
     @ElementCollection
-    private Set<Size> sizes = new HashSet<>();
+    private Set<Size> sizes;
 
     //getter-setter
     public String getMainImageBase64() {

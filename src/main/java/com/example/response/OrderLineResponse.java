@@ -8,13 +8,12 @@ public class OrderLineResponse {
     private String nameProduct;
     private int quantity;
     private int size;
-    private Double totalPrice;
+    private String totalPrice;
 
     public OrderLineResponse() {
     }
 
-    public OrderLineResponse(Long productId, String codeProduct, String brand,
-                             String mainImageBase64, String nameProduct, int quantity, int size, Double totalPrice) {
+    public OrderLineResponse(Long productId, String codeProduct, String brand, String mainImageBase64, String nameProduct, int quantity, int size, String totalPrice) {
         this.productId = productId;
         this.codeProduct = codeProduct;
         this.brand = brand;
@@ -81,11 +80,11 @@ public class OrderLineResponse {
         this.size = size;
     }
 
-    public Double getTotalPrice() {
+    public String getTotalPrice() {
         return totalPrice;
     }
 
-    public void setTotalPrice(Double totalPrice) {
+    public void setTotalPrice(String totalPrice) {
         this.totalPrice = totalPrice;
     }
 }

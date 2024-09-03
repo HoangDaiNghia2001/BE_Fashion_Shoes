@@ -3,70 +3,67 @@ package com.example.service;
 import com.example.Entity.Order;
 import com.example.exception.CustomException;
 import com.example.request.OrderRequest;
-import com.example.request.OrderUpdateRequest;
-import com.example.response.ListOrdersResponse;
-import com.example.response.OrderResponse;
-import com.example.response.OrderStatisticalByYearResponse;
-import com.example.response.QuantityByBrandResponse;
+import com.example.response.*;
 import jakarta.mail.MessagingException;
+import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderService {
+    Order getById(Long id) throws CustomException;
     void placeOrderCOD(OrderRequest orderRequest) throws CustomException, MessagingException;
 
     String placeOrderVnPay(long totalPrice, String orderInfo, String orderId);
 
-    List<OrderResponse> getOrdersResponse(List<Order> orders);
-
-    List<OrderResponse> getOrderDetailsByUser(String orderStatus, String paymentMethod,
+    ListOrdersResponse getOrderDetailsByUser(String orderStatus, String paymentMethod,
                                               LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
                                               LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
-                                              LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd) throws CustomException;
+                                              LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd, String orderCode) throws CustomException;
 
     ListOrdersResponse getAllOrderDetailByAdmin(String orderBy, String phoneNumber, String orderStatus, String paymentMethod,
                                                 String province, String district, String ward,
                                                 LocalDateTime orderDateStart, LocalDateTime orderDateEnd,
                                                 LocalDateTime deliveryDateStart, LocalDateTime deliveryDateEnd,
                                                 LocalDateTime receivingDateStart, LocalDateTime receivingDateEnd,
-                                                int pageIndex, int pageSize);
+                                                int pageIndex, int pageSize) throws CustomException;
 
-    OrderResponse getOrderDetail(Long orderId) throws CustomException;
+    OrderResponse getOrderDetail(Long id) throws CustomException;
 
-    void cancelOrderByUser(Long idOrder) throws CustomException;
+    void cancelOrderByUser(Long id) throws CustomException;
 
-    void markOrderShipped(Long id) throws CustomException;
+    void markOrderShipped(Long id) throws CustomException, MessagingException;
 
-    void markOrderConfirmed(Long id) throws CustomException;
+    void markOrderConfirmed(Long id) throws CustomException, MessagingException;
 
-    void markOrderDelivered(Long id) throws CustomException;
+    void markOrderDelivered(Long id) throws CustomException, MessagingException;
 
-    void deleteOrderByAdmin(Long id) throws CustomException;
+    Response deleteOrderByAdmin(Long id) throws CustomException, MessagingException;
 
-    void deleteSomeOrdersByAdmin(List<Long> listIdOrder) throws CustomException;
+    Response deleteSomeOrdersByAdmin(List<Long> listIdOrder) throws CustomException, MessagingException;
 
-    long findOrderIdNewest();
+    long findOrderIdNewest() throws CustomException;
 
-    OrderResponse getOrderNewestByEmail();
+    OrderResponse getOrderNewestByEmail() throws CustomException;
 
-    void updatePayOfOrderVNPay(String vnp_ResponseCode, Long orderId) throws CustomException;
+    void updatePayOfOrderVNPay(String vnp_ResponseCode, Long id) throws CustomException;
 
-    void updatePayOfOrderPayPal(String approved, Long orderId) throws CustomException;
+    void updatePayOfOrderPayPal(String approved, Long id) throws CustomException;
 
-    void updateOrderByUser(Long orderId, OrderUpdateRequest orderUpdateRequest) throws CustomException;
+    void updateOrderByUser(Long id, OrderRequest orderUpdateRequest) throws CustomException;
 
-    Long totalOrders();
+    ResponseData<Long> totalOrders();
 
-    Double revenue();
+    ResponseData<Double> revenue();
 
-    List<QuantityByBrandResponse> quantityProductSoldByBrand();
+    ResponseData<List<QuantityByBrandResponse>> quantityProductSoldByBrand();
 
-    List<OrderStatisticalByYearResponse> statisticByYear(int year);
+    ResponseData<List<OrderStatisticalByYearResponse>> statisticByYear(int year);
 
-    List<String> getAllYearInOrder();
+    ResponseData<List<String>> getAllYearInOrder();
 
-    long averageOrdersValue();
+    ResponseData<Long> averageOrdersValue();
 
-    long sold();
+    ResponseData<Long> sold();
+
 }

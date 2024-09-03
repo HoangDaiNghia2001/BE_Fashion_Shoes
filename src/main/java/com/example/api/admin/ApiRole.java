@@ -5,7 +5,7 @@ import com.example.request.RoleRequest;
 import com.example.response.ListRolesResponse;
 import com.example.response.Response;
 import com.example.response.ResponseData;
-import com.example.response.ResponseError;
+import com.example.exception.CustomException;
 import com.example.service.implement.RoleServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,9 +21,8 @@ public class ApiRole {
     private RoleServiceImpl roleService;
 
     @GetMapping("/roles")
-    public ResponseEntity<?> getAllRole(@RequestParam("pageIndex") int pageIndex,
-                                        @RequestParam("pageSize") int pageSize) {
-        ListRolesResponse listRolesResponse = roleService.getAllRoles(pageIndex, pageSize);
+    public ResponseEntity<?> getAllRole() {
+        ListRolesResponse listRolesResponse = roleService.getAllRoles();
 
         ResponseData<ListRolesResponse> responseData = new ResponseData<>();
         responseData.setMessage("Get list roles success !!!");
@@ -34,7 +33,7 @@ public class ApiRole {
     }
 
     @PostMapping("/role")
-    public ResponseEntity<?> createRole(@RequestBody RoleRequest role) throws ResponseError {
+    public ResponseEntity<?> createRole(@RequestBody RoleRequest role) throws CustomException {
         Role newRole = roleService.createRole(role);
 
         ResponseData<Role> responseData = new ResponseData<>();
@@ -46,7 +45,7 @@ public class ApiRole {
     }
 
     @PutMapping("/role")
-    public ResponseEntity<?> updateRole(@RequestBody RoleRequest role, @RequestParam("id") Long id) throws ResponseError {
+    public ResponseEntity<?> updateRole(@RequestBody RoleRequest role, @RequestParam("id") Long id) throws CustomException {
         Role oldRole = roleService.updateRole(id, role);
 
         ResponseData<Role> responseData = new ResponseData<>();
@@ -58,7 +57,7 @@ public class ApiRole {
     }
 
     @DeleteMapping("/role")
-    public ResponseEntity<?> deleteRole(@RequestParam("id") Long id) throws ResponseError {
+    public ResponseEntity<?> deleteRole(@RequestParam("id") Long id) throws CustomException {
         Response response = roleService.deleteRole(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

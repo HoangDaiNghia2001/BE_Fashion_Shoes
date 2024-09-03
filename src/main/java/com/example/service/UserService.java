@@ -1,54 +1,63 @@
 package com.example.service;
 
+import com.example.Entity.CustomUserDetails;
+import com.example.Entity.User;
+import com.example.exception.CustomException;
 import com.example.request.OtpRequest;
 import com.example.request.PasswordRequest;
 import com.example.request.ResetPasswordRequest;
 import com.example.request.UserRequest;
 import com.example.response.*;
 import jakarta.mail.MessagingException;
+import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
-    UserResponse findUserById(Long id) throws ResponseError;
+    CustomUserDetails loadUserByUsername(String email) throws CustomException;
 
-    UserResponse findUserProfileByJwt(String token) throws ResponseError, ResponseError;
+    Authentication authenticate(String email, String password) throws CustomException;
 
-    UserResponse findUserByEmail(String email) throws ResponseError;
+    User getById(Long id) throws CustomException;
 
-    UserResponse registerUser(UserRequest user) throws ResponseError;
+    UserResponse findUserProfileByJwt(String token) throws CustomException, CustomException;
 
-    ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, int pageIndex, int pageSize) throws ResponseError;
+    User findUserByEmail(String email) throws CustomException;
 
-    UserResponse updateInformation(UserRequest user, String token) throws ResponseError;
+    UserResponse registerUser(UserRequest user) throws CustomException;
 
-    UserResponse updateInformationUser(UserRequest userRequest) throws ResponseError;
+    ListUsersResponse filterUserByAdmin(String code, String email, String province, String district, String ward, boolean inactive, int pageIndex, int pageSize) throws CustomException;
 
-    UserResponse updateInformationAdmin(UserRequest adminRequest) throws ResponseError, IOException;
+    UserResponse updateInformation(UserRequest user, String token) throws CustomException;
 
-    Response changePassword(PasswordRequest passwordRequest, String token) throws ResponseError;
+    UserResponse updateInformationUser(UserRequest userRequest) throws CustomException;
 
-    Response changePasswordUser(PasswordRequest passwordRequest) throws ResponseError;
+    UserResponse updateInformationAdmin(UserRequest adminRequest) throws CustomException, IOException;
 
-    Response changePasswordAdmin(PasswordRequest passwordRequest) throws ResponseError;
+    Response changePassword(PasswordRequest passwordRequest, String token) throws CustomException;
 
-    String sendOTPCode(String email) throws ResponseError, MessagingException;
+    Response changePasswordUser(PasswordRequest passwordRequest) throws CustomException;
 
-    Response validateOtp(OtpRequest otpRequest) throws ResponseError;
+    Response changePasswordAdmin(PasswordRequest passwordRequest) throws CustomException;
 
-    Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws ResponseError;
+    Response validateOtp(OtpRequest otpRequest) throws CustomException;
+
+    Response resetPassword(ResetPasswordRequest resetPasswordRequest) throws CustomException;
 
     Long totalUsers();
 
     List<TopFiveUsersBoughtTheMostResponse> getTopFiveUsersBoughtTheMost();
 
-    UserResponse createUserByAdmin(UserRequest userRequest) throws ResponseError, MessagingException;
+    UserResponse createUserByAdmin(UserRequest userRequest) throws CustomException, MessagingException;
 
-    UserResponse updateUserByAdmin(long id, UserRequest userRequest) throws ResponseError, MessagingException;
+    UserResponse updateUserByAdmin(long id, UserRequest userRequest) throws CustomException, MessagingException;
 
-    Response deleteUserByAdmin(long id) throws ResponseError, MessagingException;
+    Response deleteUserByAdmin(long id) throws CustomException, MessagingException;
 
-    Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException;
+    Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException, CustomException;
 
+    Response deactivateUser(Long id) throws CustomException;
+
+    Response reactivateUser(Long id) throws CustomException;
 }

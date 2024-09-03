@@ -1,16 +1,40 @@
 package com.example.exception;
 
-import com.example.response.ResponseError;
+public class CustomException extends Exception{
+    private String message;
+    private boolean success = false;
+    private int status;
 
-public class CustomException extends Exception {
-
-    private ResponseError responseError;
-
-    public CustomException(ResponseError responseError) {
-        this.responseError = responseError;
+    public CustomException() {
     }
 
-    public ResponseError getResponseError() {
-        return this.responseError;
+    public CustomException(String message, int status) {
+        this.message = message;
+        this.success = false;
+        this.status = status;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
     }
 }

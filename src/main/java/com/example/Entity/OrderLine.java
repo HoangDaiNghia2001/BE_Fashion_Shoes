@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "oreder_line")
+@Table(name = "order_line")
 public class OrderLine extends BaseEntity{
     @Column(name = "total_price")
     private double totalPrice;
