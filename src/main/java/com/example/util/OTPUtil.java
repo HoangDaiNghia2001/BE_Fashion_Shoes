@@ -25,12 +25,12 @@ public class OTPUtil {
 
     public ResponseCookie generateOtpCookie(String otp) {
         return ResponseCookie.from(CookieConstant.OTP_COOKIE, otp)
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(5 * 60)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")
+                .sameSite("None")
                 .build();
     }
 

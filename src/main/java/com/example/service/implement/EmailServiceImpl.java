@@ -39,12 +39,12 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public ResponseCookie generateEmailCookie(String email) {
         return ResponseCookie.from(CookieConstant.EMAIL_COOKIE, email)
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(10 * 60)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")
+                .sameSite("None")
                 .build();
     }
 

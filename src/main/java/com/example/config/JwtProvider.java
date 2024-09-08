@@ -36,24 +36,23 @@ public class JwtProvider {
         String token = this.generateToken(user);
 
         return ResponseCookie.from(name, token)
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(10*60)
-//                .maxAge(60*60)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")600000
+                .sameSite("None")
                 .build();
     }
 
     public ResponseCookie generateRefreshTokenCodeCookie(String name, String refreshTokenCode) {
         return ResponseCookie.from(name, refreshTokenCode)
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(24 * 60 * 60 * 10)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")
+                .sameSite("None")
                 .build();
     }
 
@@ -76,23 +75,23 @@ public class JwtProvider {
 
     public ResponseCookie cleanTokenCookie(String name) {
         return ResponseCookie.from(name, "")
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")
+                .sameSite("None")
                 .build();
     }
 
     public ResponseCookie cleanRefreshTokenCodeCookie(String name){
         return ResponseCookie.from(name, "")
-//                .domain(".railway.app")
+                .domain(".railway.app")
                 .path("/")
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(true)
-//                .sameSite("None")
+                .sameSite("None")
                 .build();
     }
 
