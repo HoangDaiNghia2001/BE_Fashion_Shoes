@@ -276,16 +276,16 @@ public class OrderServiceImpl implements OrderService {
         vnp_Params.put("vnp_IpAddr", VNPayConfig.vnp_IpAddr);
 
         // chạy localhost
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String vnp_CreateDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-
-        // chạy trên railway giờ London
-//        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Europe/London"));
+//        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
 //        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
 //        String vnp_CreateDate = formatter.format(cld.getTime());
 //        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+
+        // chạy trên railway giờ London
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Europe/London"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        String vnp_CreateDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
         // do lệch múi giờ ở phần domain là 7 tiếng (giờ ở Lodon với giờ ở Việt Nam) nên phải set up vnp_ExpireDate có thời gian là 8 tiếng
         cld.add(Calendar.MINUTE, 480);
