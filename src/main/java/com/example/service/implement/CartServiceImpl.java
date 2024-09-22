@@ -268,6 +268,11 @@ public class CartServiceImpl implements CartService {
         for (Cart cart : carts) {
             boolean isSizeExist = false;
             Product product = cart.getProduct();
+            // Check the price again if there is any change
+            if (product.getDiscountedPrice() != (cart.getTotalPrice() / cart.getQuantity())) {
+                cart.setTotalPrice(product.getDiscountedPrice() * cart.getQuantity());
+            }
+            // Check if the product is in stock or not
             for (Size s : product.getSizes()) {
                 if (s.getName() == cart.getSize()) {
                     isSizeExist = true;
@@ -285,7 +290,7 @@ public class CartServiceImpl implements CartService {
 
             if (isSizeExist) {
                 cartRepository.save(cart);
-            }else{
+            } else {
                 // if size not exist in product
                 carts.remove(cart);
                 cartRepository.delete(cart);
