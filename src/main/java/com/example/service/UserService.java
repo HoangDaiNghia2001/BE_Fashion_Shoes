@@ -57,7 +57,7 @@ public interface UserService {
 
     Response deleteSomeUsersByAdmin(List<Long> ids) throws MessagingException, CustomException;
 
-    Response deactivateUser(Long id) throws CustomException;
+    Response deactivateUser(Long id) throws CustomException, MessagingException;
 
-    Response reactivateUser(Long id) throws CustomException;
+    Response reactivateUser(Long id) throws CustomException, MessagingException;
 }

@@ -97,13 +97,13 @@ public class ApiUser {
     }
 
     @PutMapping("/users/deactivate")
-    public ResponseEntity<?> deactivateUser(@RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> deactivateUser(@RequestParam("id") Long id) throws CustomException, MessagingException {
         Response response = userService.deactivateUser(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PutMapping("/users/reactivate")
-    public ResponseEntity<?> reactivateUser(@RequestParam("id") Long id) throws CustomException {
+    public ResponseEntity<?> reactivateUser(@RequestParam("id") Long id) throws CustomException, MessagingException {
         Response response = userService.reactivateUser(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

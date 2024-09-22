@@ -160,7 +160,7 @@ public class ApiOrder {
         Payment payment = payPalService.executePayment(paymentId, payerId);
         orderDetailService.updatePayOfOrderPayPal(payment.getState(), orderId);
         OrderResponse orderResponse = orderDetailService.getOrderNewestByEmail();
-        response.sendRedirect("http://localhost:3000/orders");
+        response.sendRedirect("https://fe-fashions-shoes-user.vercel.app/orders");
         Response response = new Response();
         response.setStatus(HttpStatus.OK.value());
         response.setMessage("Paypal success !!!");
@@ -169,14 +169,14 @@ public class ApiOrder {
 
     @GetMapping("/pay/cancel")
     public ResponseEntity<?> paymentPayPalCancel() throws IOException {
-        response.sendRedirect("http://localhost:3000/cart");
+        response.sendRedirect("https://fe-fashions-shoes-user.vercel.app/cart");
 
         return ResponseEntity.ok().body("Paypal cancel !!!");
     }
 
     @GetMapping("/payment/paypal/error")
     public ResponseEntity<?> paymentPayPalError() throws IOException {
-        response.sendRedirect("http://localhost:3000/");
+        response.sendRedirect("https://fe-fashions-shoes-user.vercel.app/");
 
         Response response = new Response();
         response.setSuccess(false);
@@ -229,7 +229,7 @@ public class ApiOrder {
         orderDetailService.updatePayOfOrderVNPay(vnPayResponse.getVnp_ResponseCode(), Long.valueOf(orderId));
 
 //        response.sendRedirect("http://localhost:3000/vnpay-response/" + orderId);
-        response.sendRedirect("https://fashion-shoes.vercel.app/vnpay-response/" + orderId);
+        response.sendRedirect("https://fe-fashions-shoes-user.vercel.app/vnpay-response/" + orderId);
 
         return ResponseEntity.ok().body("VNPay response !!!");
     }

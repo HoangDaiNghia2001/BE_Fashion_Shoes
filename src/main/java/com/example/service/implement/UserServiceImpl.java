@@ -390,10 +390,10 @@ public class UserServiceImpl implements UserService {
         // send email to the user
         Context context = new Context();
         context.setVariable("firstName", user.getFirstName());
-        context.setVariable("notification", "Your account has been deactivated");
+        context.setVariable("notification", "Your account has been Delete");
         context.setVariable("description", "We regret to inform you that your account has been permanently deleted. This action is irreversible, and all your data has been removed from our system. If you have any questions or need further assistance, please contact our support team.");
 
-        emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Disabled","notification_email", context);
+        emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Delete","notification_email", context);
 
         userRepository.delete(user);
         Response response = new Response();
@@ -417,7 +417,7 @@ public class UserServiceImpl implements UserService {
 
         // send email to the user
         Context context = new Context();
-        context.setVariable("notification", "Your account has been deactivated");
+        context.setVariable("notification", "Your account has been Delete");
         context.setVariable("description", "We regret to inform you that your account has been permanently deleted. This action is irreversible, and all your data has been removed from our system. If you have any questions or need further assistance, please contact our support team.");
 
         for(User user : usersDelete){
@@ -429,7 +429,7 @@ public class UserServiceImpl implements UserService {
             }
 
             context.setVariable("firstName", user.getFirstName());
-            emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Disabled","notification_email", context);
+            emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Delete","notification_email", context);
 
             // delete user
             userRepository.delete(user);
@@ -445,7 +445,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Response deactivateUser(Long id) throws CustomException {
+    public Response deactivateUser(Long id) throws CustomException, MessagingException {
         User user = this.getById(id);
         user.setActive(false);
         userRepository.save(user);
@@ -455,6 +455,8 @@ public class UserServiceImpl implements UserService {
         context.setVariable("notification", "Your account has been deactivated");
         context.setVariable("description", "We regret to inform you that your account has been deactivated due to inactivity or a violation of our terms of service. If you believe this is a mistake or if you would like to discuss this further, please contact our support team.");
 
+        emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Deactivated","notification_email", context);
+
         Response response = new Response();
         response.setMessage("Deactivate user successfully !!!");
         response.setStatus(HttpStatus.OK.value());
@@ -463,7 +465,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Response reactivateUser(Long id) throws CustomException {
+    public Response reactivateUser(Long id) throws CustomException, MessagingException {
         User user = this.getById(id);
         user.setActive(true);
         userRepository.save(user);
@@ -472,6 +474,9 @@ public class UserServiceImpl implements UserService {
         context.setVariable("firstName", user.getFirstName());
         context.setVariable("notification", "Your account has been reactivated");
         context.setVariable("description", "We are pleased to inform you that your account has been reactivated. You can now access all the features and services. If you encounter any issues or have any questions, please feel free to contact our support team.");
+
+        emailService.sendEmail(user.getEmail(),"Important: Your Account Has Been Reactivated","notification_email", context);
+
         Response response = new Response();
         response.setMessage("Activate user successfully !!!");
         response.setStatus(HttpStatus.OK.value());
